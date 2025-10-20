@@ -1,0 +1,32 @@
+\documentclass{article}
+\usepackage{graphicx}
+
+\title{Learnings}
+
+
+\begin{document}
+
+
+
+\section{SMTP protocol}
+
+The Simple Mail Transfer Protocol (SMTP) is a technical standard for transmitting electronic mail over a network.
+The main function of SMTP is to transfer data from the sender to the recipient.
+When a sender sends an email, SMTP opens a TCP (Transmission Control Protocol) connection, as it uses TCP as its transport protocol.
+The email client begins the email sending process with a specialized ``Hello'' command.
+The client then sends a series of commands containing the actual content of the email, such as the email header and email body.
+The server runs a program called MTA (Mail Transfer Agent), which checks the domain of the recipient's email address. After transferring the data, the connection is closed.
+
+\section{SMTP Server}
+
+An SMTP server is a mail server that can send and receive emails using the SMTP protocol.
+Various software programs run on an SMTP server. The Mail Submission Agent (MSA) receives emails from the email client.
+The Mail Transfer Agent (MTA) transfers email to the next server in the delivery chain.
+The Mail Delivery Agent (MDA) receives emails from MTAs and stores them in the recipient's mailbox.
+
+
+\section{References}
+
+1. https://www.cloudflare.com/en-in/learning/email-security/what-is-smtp/
+
+\end{document}
