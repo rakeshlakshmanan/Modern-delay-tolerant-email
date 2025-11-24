@@ -8,7 +8,7 @@
 ## December 2025
 
 - Learn about other features in email like anti-spam check, encryption etc
-- Postfix, Dovecot, Thunderbird
+- Postfix, Dovecot, Thunderbird, ION
 
 ## January 2026
 

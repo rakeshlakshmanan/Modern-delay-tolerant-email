@@ -1,0 +1,61 @@
+\chapter{Literature Review}
+
+
+\section{Introduction}
+
+Delay/Disruption-Tolerant Networking (DTN) and Internet email are both store-and-forward communication systems that enable asynchronous message delivery across heterogeneous networks \cite{fall2003dtn,crocker2009ima}. DTN generalizes the store-and-forward concept as a network-layer or overlay architecture for challenged environments, whereas email is a specific application-layer service built on top of relatively well-connected IP networks.\cite{fall2003dtn,crocker2009ima}
+
+\section{Delay/Disruption-Tolerant Networking}
+
+\subsection{Concept and Motivation}
+
+DTN targets ``challenged'' networking environments characterized by intermittent connectivity, long or variable delays, high error rates, and constrained resources such as power and storage.\cite{fall2003dtn,cerf2007dtnsurvey} In such environments, classical TCP/IP assumptions about continuous end-to-end paths and low round-trip time do not hold, which requires a different architectural approach.\cite{fall2003dtn}
+
+Typical DTN scenarios include deep-space communication, rural and remote connectivity, ad hoc vehicular and mobile networks, and disaster-response deployments where infrastructure is damaged or overloaded.\cite{fall2003dtn,cerf2007dtnsurvey} The primary objective is to provide eventual data delivery despite disruptions, using persistent storage and opportunistic forwarding across time-varying connectivity graphs.\cite{fall2003dtn,balasubramanian2007dtnrouting}
+
+\subsection{DTN Architecture and Bundle Layer}
+
+The canonical DTN architecture introduces a new overlay protocol layer, commonly called the bundle layer, which resides above region-specific transports (e.g., TCP, UDP, Licklider Transmission Protocol) and below applications.\cite{fall2003dtn,cerf2007dtnsurvey} Applications generate protocol data units called bundles, which encapsulate payload data together with endpoint identifiers, lifetime, priority, and optional security blocks.\cite{fall2003dtn,burleigh2022tcpcl}
+
+Each DTN node maintains persistent storage for bundles and performs a store-carry-forward operation: bundles are stored locally, carried while the node is mobile or idle, and forwarded when a suitable contact becomes available.\cite{fall2003dtn,sobin2012dtnsurvey} Convergence-layer adapters map bundle operations onto specific underlying transports (for example, the DTN TCP Convergence-Layer Protocol) so that the bundle layer is insulated from link heterogeneity.\cite{burleigh2022tcpcl}
+
+\subsection{DTN Nodes, Regions, and Security}
+
+The architecture partitions the overall system into regions, such as terrestrial IP networks, satellite segments, and deep-space links, which may employ different lower-layer protocols and routing schemes.\cite{cerf2007dtnsurvey} The bundle layer provides interoperability across these regions using endpoint identifiers and late binding, allowing applications to communicate without being aware of underlying heterogeneity.\cite{cerf2007dtnsurvey,sobin2012dtnsurvey}
+
+Security is addressed using dedicated bundle security mechanisms that provide authentication, integrity protection, and confidentiality over multi-hop, disruption-prone paths.\cite{cerf2007dtnsurvey} Because DTN nodes may store data for long periods and may replicate messages to improve delivery probability, the security design also considers access control, resistance to resource exhaustion, and key management across regions.\cite{sobin2012dtnsurvey,balasubramanian2007dtnrouting}
+
+\subsection{Routing, Scheduling, and Buffer Management}
+
+Routing in DTNs differs fundamentally from traditional IP routing because an end-to-end path between source and destination may not exist at any given time.\cite{balasubramanian2007dtnrouting,sobin2012dtnsurvey} Instead, routing algorithms operate over time-varying or probabilistic contact graphs, taking into account predicted or observed node mobility and contact opportunities.\cite{sobin2012dtnsurvey}
+
+Existing DTN routing schemes can be broadly classified by the degree of replication and the information they exploit: epidemic and multi-copy protocols maximize delivery probability at the cost of bandwidth and buffer usage, while single-copy or quota-based schemes trade delivery ratio for reduced overhead.\cite{balasubramanian2007dtnrouting,sobin2012dtnsurvey} Since contacts are intermittent and buffers are limited, joint scheduling and buffer management policies are required to decide which bundles to transmit or drop according to priorities, deadlines, and resource constraints.\cite{sobin2012dtnsurvey}
+
+\section{Internet Email Architecture}
+
+\subsection{Service Model and Roles}
+
+Internet email is an asynchronous application-layer service that delivers messages between users identified by email addresses of the form \texttt{local-part@domain}.\cite{crocker2009ima,klensin2008smtp} The system is decomposed into functional roles including Message User Agents (MUAs), Message Submission Agents (MSAs), Message Transfer Agents (MTAs), Message Delivery Agents (MDAs), and Mail Access Agents.\cite{crocker2009ima}
+
+MUAs (such as desktop clients or webmail front-ends) are responsible for message composition, display, and user interaction, but they offload submission, relay, and storage to server-side agents.\cite{crocker2009ima} MSAs accept messages from MUAs, apply initial checks, and hand them to MTAs, which relay messages between domains until they reach an MDA that deposits them into per-user mailboxes.\cite{crocker2009ima,klensin2008smtp}
+
+\subsection{Protocol Suite: SMTP, POP, IMAP, MIME}
+
+The Simple Mail Transfer Protocol (SMTP) defines the submission and relay of messages between MSAs and MTAs, including envelope commands and response codes for reliable transfer \cite{klensin2008smtp}. Originally designed for clear text operation and implicit trust between servers, SMTP has been extended with authentication and encryption mechanisms such as SMTP AUTH and STARTTLS.\cite{klensin2008smtp}
+
+For mailbox access, the Post Office Protocol version 3 (POP3) supports simple download-and-delete retrieval, while the Internet Message Access Protocol (IMAP) offers folder hierarchies, server-side search, and synchronization across multiple clients and devices.\cite{crispin2003imap} At the message format level, the Internet Message Format standard and Multipurpose Internet Mail Extensions (MIME) specify headers, structure, multiple body parts, and attachments, enabling rich content and internationalization.\cite{resnick2008imf}
+
+\subsection{Security and Anti-Abuse Mechanisms}
+
+Traditional email architecture did not include end-to-end confidentiality, strong sender authentication, or robust abuse controls, making it vulnerable to spoofing, spam, and phishing \cite{crocker2009ima}. In practice, deployments mitigate these weaknesses by combining transport-layer security (TLS), server and user authentication, and extensive content-based filtering, often using machine learning to classify spam and malicious messages.\cite{crocker2009ima,buccafurri2023sae}
+
+Domain-level authentication and policy mechanisms such as Sender Policy Framework (SPF), DomainKeys Identified Mail (DKIM), and DMARC enable domains to assert which hosts may send mail on their behalf and to specify handling rules for authentication failures.\cite{crocker2009ima} Additional secure application architectures have been proposed that overlay existing email infrastructure with stronger identity, integrity, and legal guarantees, while preserving compatibility with standard protocols.\cite{buccafurri2023sae}
+
+\section{Comparison of DTN and Email Architectures}
+
+Both DTN and Internet email rely on asynchronous, store-and-forward operation, with intermediate nodes temporarily buffering data before forwarding it to the destination.\cite{fall2003dtn,crocker2009ima} However, DTN is conceived as a general-purpose network-layer architecture for environments with extreme delay and disruption, while email is a specific application protocol suite designed for relatively stable IP networks \cite{fall2003dtn,klensin2008smtp}.
+
+DTN introduces a unified bundle layer to integrate heterogeneous underlying networks and explicitly models time-varying connectivity and contact opportunities \cite{fall2003dtn,cerf2007dtnsurvey}. On the contrary, the email architecture builds on existing IP transport and focuses on application-level roles, standardized message formats, and security mechanisms for addressing and content-level
+
+
+
