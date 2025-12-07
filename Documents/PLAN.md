@@ -30,11 +30,11 @@
 
 ## May 2026
 
-- Testing and collect reports
+- Implement SyncAgent to solve user interplanetary mobility
 
 ## June 2026
 
- - Complete the report and dissertation.
+ - Testing and finalize the report.
 
 
 

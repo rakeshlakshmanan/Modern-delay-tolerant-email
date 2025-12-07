@@ -55,3 +55,37 @@ Domain-level authentication and policy mechanisms such as Sender Policy Framewor
 Both DTN and Internet email rely on asynchronous, store-and-forward operation, with intermediate nodes temporarily buffering data before forwarding it to the destination.\cite{fall2003dtn,crocker2009ima} However, DTN is conceived as a general-purpose network-layer architecture for environments with extreme delay and disruption, while email is a specific application protocol suite designed for relatively stable IP networks \cite{fall2003dtn,klensin2008smtp}.
 
 DTN introduces a unified bundle layer to integrate heterogeneous underlying networks and explicitly models time-varying connectivity and contact opportunities \cite{fall2003dtn,cerf2007dtnsurvey}. On the contrary, the email architecture builds on existing IP transport and focuses on application-level roles, standardized message formats, and security mechanisms for addressing and content-level
+
+
+\section{Bundle Protocol in Interplanetary DTN}
+
+The Bundle Protocol (BP) is the core network protocol of Delay/Disruption-Tolerant Networking (DTN), designed to support long-delay and intermittently connected paths using store-and-forward transfer of application data units called bundles~\cite{Burleigh2007ION}. In interplanetary scenarios, BP is typically deployed as an overlay over one or more convergence layers (such as TCP, LTP, or space link protocols), providing persistent storage and late binding of next hops so that disruptions that would break conventional end-to-end transports do not prevent eventual delivery~\cite{Burleigh2007ION}. This overlay role allows BP to act as a unifying backbone across heterogeneous regional networks, particularly where deep-space links have radically different characteristics from local terrestrial segments~\cite{Burleigh2007ION}.
+
+\subsection{Interplanetary Architecture and Gateways}
+
+Proposed interplanetary network architectures generally assume that local networks on Earth, the Moon, and Mars are IP-based, while deep-space and interplanetary trunks use BP to interconnect these IP ``islands''~\cite{Johnson2024InterplanetarySMTP}. IP/BP gateways terminate local IP sessions, encapsulate application-layer traffic (for example HTTP or SMTP) into bundle payloads, and forward those bundles over scheduled BP contacts so that remote gateways can reconstruct the original IP traffic within their own local environments~\cite{Johnson2024InterplanetarySMTP}. This architecture enables reuse of existing Internet applications without requiring native end-to-end IP connectivity across long-delay space links~\cite{Johnson2024InterplanetarySMTP}.
+
+\subsection{Naming, DNS, and BP Node Addressing}
+
+To integrate BP-based interplanetary connectivity with name resolution, an interplanetary DNS model has been proposed in which each planetary body operates its own DNS root system and associated top-level domains~\cite{Johnson2025InterplanetaryDNS}. In this model, DNS records for those TLDs resolve primarily to local IP/BP gateways rather than directly reachable off-world IP addresses, and can include resource records that map domain names to BP node identifiers as well as MX records pointing to interplanetary mail gateways~\cite{Johnson2025InterplanetaryDNS}. DNSSEC can still be applied with distinct trust anchors per world, while most DNS traffic remains local and only application data is carried over BP between planets~\cite{Johnson2025InterplanetaryDNS}.
+
+\subsection{Interplanetary Email over the Bundle Protocol}
+
+Email is a prominent application driving the deployment of DTN and BP in interplanetary contexts, where entire SMTP exchanges or packeted email messages are encapsulated as bundle payloads and transported between IP networks on different planetary bodies~\cite{Johnson2024InterplanetarySMTP,Blanchet2025EmailOverBP}. One proposal describes several deployment models where Mail Transfer Agents (MTAs) cooperate with Bundle Protocol Agents (BPAs) to move email between Earth and remote BP nodes, including cases in which the remote node has only BP connectivity and relies on a local shim to provide SMTP semantics to users or applications~\cite{Johnson2024InterplanetarySMTP}. A complementary specification defines a concise encapsulation based on Batch SMTP media types and a dedicated BP service number, allowing conventional MTAs at each end to operate unchanged while the interplanetary hop is handled solely via BP~\cite{Blanchet2025EmailOverBP}.
+
+\subsection{Implementation Example: Interplanetary Overlay Network}
+
+The Interplanetary Overlay Network (ION) is a widely used implementation of the DTN Bundle Protocol and has been employed in both spaceflight-related experiments and terrestrial DTN testbeds~\cite{Burleigh2007ION}. ION provides configuration-driven contact plans, persistent storage of bundles, and adapters to multiple convergence layers, thereby realizing the store-and-forward, contact-scheduled forwarding behavior required by DTN architectures~\cite{Burleigh2007ION}. Subsequent work often uses ION as a reference implementation when evaluating performance and operational considerations for DTN deployments in satellite and interplanetary networks~\cite{Burleigh2007ION}.
+
+\section{Interplanetary Overlay Network (ION)}
+
+The Interplanetary Overlay Network (ION) is a mature, open-source implementation of the Delay/Disruption-Tolerant Networking (DTN) Bundle Protocol (BP), developed primarily for space communications but also applicable to terrestrial challenged networks~\cite{Burleigh2007ION}. ION provides a complete DTN node stack including bundle processing, contact plan management, convergence layer protocols (such as TCPCL and LTP), and administrative tools for monitoring and management~\cite{ION2025}. It has been deployed in NASA missions, satellite testbeds, and research environments, serving as the de facto reference implementation for BP evaluation and experimentation~\cite{Burleigh2007ION,ION2025}.
+
+\subsection{System Architecture}
+
+ION operates as a distributed daemon-based system where the primary \texttt{iond} process manages the global DTN node state, bundle storage, and contact scheduling~\cite{Burleigh2007ION}. Bundles are persisted in a SQLite database for reliability across restarts, with separate tables tracking bundle metadata, custody records, and delivery status to support proactive custody transfer and retransmission~\cite{ION2025}. The architecture separates core BP logic from convergence layers via a plugin model, allowing ION to adapt to diverse underlying links including UDP, TCP, LTP, and space data link protocols without modifying the bundle core~\cite{Burleigh2007ION,RFC5050}.
+
+
+\subsection{Applications and Deployment}
+
+ION ships with reference applications demonstrating BP usage, including the Bundle Relay Utility (BRU) for simple store-forward, the DTNperf tool for throughput measurement, and higher-layer protocol shims for email, file transfer, and web services over BP~\cite{ION2025}. It has been flight-qualified for NASA's Deep Space Network and CubeSat missions, with operational deployments managing terabytes of scientific data across solar system distances~\cite{Burleigh2007ION}. The codebase remains actively maintained with contributions from JPL, ESA, and academic partners, supporting both RFC 5050 BPv6 and emerging BPv7 specifications~\cite{ION2025,RFC5050}.
