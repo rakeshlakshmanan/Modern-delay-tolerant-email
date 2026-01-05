@@ -85,3 +85,15 @@ ION operates as a distributed daemon-based system where the primary \texttt{iond
 \subsection{Applications and Deployment}
 
 ION ships with reference applications demonstrating BP usage, including the Bundle Relay Utility (BRU) for simple store-forward, the DTNperf tool for throughput measurement, and higher-layer protocol shims for email, file transfer, and web services over BP~\cite{ION2025}. It has been flight-qualified for NASA's Deep Space Network and CubeSat missions, with operational deployments managing terabytes of scientific data across solar system distances~\cite{Burleigh2007ION}. The codebase remains actively maintained with contributions from JPL, ESA, and academic partners, supporting both RFC 5050 BPv6 and emerging BPv7 specifications~\cite{ION2025,rfc9171}.
+
+\section{Postfix}
+Postfix is a Mail Transfer Agent (MTA) that handles sending and receiving emails using the Simple Mail Transfer Protocol (SMTP). It is responsible for transferring emails between mail servers and delivering messages to local user mailboxes in a secure and efficient manner.
+
+\section{Dovecot}
+Dovecot is a Mail Delivery Agent (MDA) and IMAP/POP3 server that allows users to access and read their emails stored on the mail server. It manages mailbox formats such as Maildir and provides authentication and retrieval services for email clients.
+
+\section{Thunderbird}
+Thunderbird is a Mail User Agent (MUA) that provides a graphical interface for users to compose, send, receive, and manage emails. It communicates with Postfix for sending emails via SMTP and with Dovecot for retrieving emails using IMAP or POP3.
+
+\section{Virtual Machines (VMs)}
+Virtual Machines are isolated computing environments that run independent operating systems on a single physical host. In this setup, VMs are used to simulate separate mail servers and clients, enabling realistic testing and experimentation with email system architectures.
