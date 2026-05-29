@@ -1,0 +1,74 @@
+## begin ionadmin
+# Initialization command
+# - Node number 1
+# - Default SDR configuration ('')
+1 1 ''
+
+# Start ION
+s
+
+# Add a contact
+# - Start at +1 seconds from now, end +3600 seconds from now
+# - Source node 1 to destination node 1
+# - Transmit at 100_000 bytes/s
+a contact +1 +3600 1 1 100000
+
+# Add a range (physical distance between nodes)
+# - Start at +1 seconds from now, end +3600 seconds from now
+# - Node 1 to node 1
+# - 0 light seconds
+a range +1 +3600 1 1 0
+
+# Produce and consume at 1_000_000 bytes/s
+m production 1000000
+m consumption 1000000
+## end ionadmin
+
+
+## begin bpadmin
+# Initialization command
+1
+
+# Add EID scheme
+a scheme ipn 'ipnfw' 'ipnadminep'
+
+# Add endpoints
+# DTPC API is hardcoded to use 128 for sending and 129 for receiving
+a endpoint ipn:1.128 q
+a endpoint ipn:1.129 q
+
+# Add TCP protocol
+a protocol tcp
+
+# Add loopback ducts
+a induct tcp 0.0.0.0:4556 tcpcli
+a outduct tcp 127.0.0.1:4556 tcpclo
+
+# Start the daemons
+s
+## end bpadmin
+
+
+## begin ipnadmin
+# Add egress plan. Bundles to be transmitted to node number 1 use the 'tcp'
+# protocol at the outduct identified by 127.0.0.1
+a plan 1 tcp/127.0.0.1:4556
+## end ipnadmin
+
+
+## begin dtpcadmin
+# Initialization command
+1
+
+# Profile ID 1. Retransmit 1 time, ASL of 1024 bytes and ATL of 4 seconds
+# (disables aggregation and elision). Bundles have a TTL of 10 minutes, are not
+# subject to custody transfer, are sent at "standard" priority, and will not be
+# tracked by any bundle status report production.
+a profile 1 1 1024 4 600 0.1 dtn:none
+# ASL of 0 bytes and ATL of 0 seconds makes tests pass quickly, but hangs on
+# some machines. (There may be a race condition in ION's DTPC code?)
+# a profile 1 1 0 0 600 0.1 dtn:none
+
+# Start daemon
+s
+## end dtpcadmin
