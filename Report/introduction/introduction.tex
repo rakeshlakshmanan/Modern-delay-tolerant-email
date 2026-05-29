@@ -111,3 +111,54 @@ BPMail serves as a bridge between the conventional email and DTN. When a email i
 \subsection{Integration with Postfix}
 
 BPMail must be integrated with Postfix so that emails destined for the remote DTN node are routed through BPMail's transport rather than the default SMTP delivery path. This integration require configuring BPMail both in sender's side and receiver's side so that the DTN transport is handled seamlessly without any changes to how users send or receive email. On the sending side, Postfix was configured with a custom transport map that routes emails destined for the remote mail server through BPMail instead of attempting direct SMTP delivery. A pipe transport entry was added to Postfix's master.cf, which instructs Postfix to pass outgoing emails to bpmailsend via standard input. On the receiving side, a background daemon continuously runs bpmailrecv, which blocks and waits for incoming DTPC payloads. When an email bundle arrives, bpmailrecv reconstructs the original MIME message and pipes it directly to sendmail, which reintroduces the email into the local Postfix mail system. From here, Postfix handles the delivery of the email to the receiver's mailbox.
+
+\section{Anti-Spam Systems}
+Anti-spam systems are software tools deployed on mail servers to filter 
+unwanted bulk or malicious email before it reaches recipients. They work 
+by analysing incoming messages against known indicators of spam such as 
+sender IP reputation, message content patterns, and email authentication 
+records and assigning a verdict or score that determines whether a message 
+should be accepted, flagged, or rejected. These tools rely on real-time 
+network queries to external databases and blacklists to make their 
+decisions, making them dependent on low-latency internet connectivity 
+to function effectively.
+
+\subsection{SpamAssassin}
+SpamAssassin is a rule-based anti-spam tool that processes incoming email 
+by applying a combination of local content rules, DNS-based blacklist (DNSBL) 
+lookups, and email authentication checks \cite{spamassassin}. For each message, 
+it queries multiple external services including IP blacklists, domain blacklists, 
+URI blacklists, and sender accreditation services to evaluate the reputation of 
+the sender IP and any URLs found in the message body. The number of DNS queries 
+it issues scales with the content of the email, increasing with the number of 
+URLs present.
+
+\subsection{Rspamd}
+Rspamd is a multi-method anti-spam system that performs DNSBL lookups, SPF, 
+DKIM, and DMARC verification, URI blacklist checks, and ASN lookups in parallel 
+for each incoming message \cite{rspamd}. It queries a broad set of external 
+DNS-based services per email and runs continuous background 
+monitoring probes against those services independent of per-email processing. 
+It assigns a weighted score based on the rules triggered and takes a configured 
+action such as adding headers, greylisting, or rejecting based on 
+that score.
+
+\subsection{Vipul's Razor}
+Vipul's Razor is a collaborative spam-detection tool that computes fuzzy 
+checksums of email body content and queries Cloudmark's centralised catalogue 
+servers over TCP port 2703 to check whether those checksums match previously 
+reported spam \cite{razor}. It requires two layers of network connectivity: a 
+DNS lookup to resolve Cloudmark server hostnames, followed by a TCP session to 
+one of the catalogue servers. Unlike DNSBL-based tools, Razor does not evaluate 
+sender IP reputation, it focuses entirely on whether the message content 
+itself has been reported as spam by other users.
+
+\subsection{DCC (Distributed Checksum Clearinghouse)}
+DCC is a distributed spam-detection system that computes three types of 
+checksums, Body, Fuz1, and Fuz2 from each incoming message and submits 
+them to a network of globally distributed servers over UDP port 6277 \cite{dcc}. 
+Those servers maintain counts of how many recipients have received messages with 
+matching checksums; messages seen by a large number of recipients are classified 
+as bulk mail. Unlike DNSBL tools, DCC does not check sender reputation, and 
+unlike Razor, it does not rely on user-reported spam signatures. It detects 
+spam purely based on volume of distribution.
