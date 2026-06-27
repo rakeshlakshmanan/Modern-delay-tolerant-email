@@ -1,0 +1,5 @@
+* text eol=lf
+*.[ch] diff=cpp
+*.py diff=python
+*.md diff=markdown
+test/messages/* -text
