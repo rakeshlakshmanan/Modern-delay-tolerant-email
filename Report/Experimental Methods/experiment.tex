@@ -1,2 +1,207 @@
 \chapter{System Design}
-System design content
+
+
+This chapter describes the testbed used to evaluate anti-spam tools under the one-way delay of a deep-space DTN link. It sets out the node layout, the host model and the reasons for it, the tools under test, the DTN configuration, the delay simulation, and the experimental design.
+
+\section{System Architecture}
+\label{sec:arch}
+
+The testbed has two networks joined by a relay. Earth uses the 192.168.100.0/24
+subnet and Moon uses the 192.168.200.0/24 subnet. The nodes are:
+
+\begin{itemize}
+  \item \textbf{Mail1 (Earth).} The Earth mail server. Runs Postfix, Dovecot, and
+  the four anti-spam tools. User account \texttt{alice}. Address 192.168.100.10.
+  ION node 1.
+  \item \textbf{Space (Relay).} The transit node between the two networks. Runs an
+  ION node and carries the delay and packet-capture configuration. Earth-side
+  interface 192.168.100.1, Moon-side interface 192.168.200.1. ION node 2.
+  \item \textbf{Mail2 (Moon).} The Moon mail server. Runs Postfix and Dovecot.
+  User account \texttt{bob}. Address 192.168.200.11. ION node 3.
+  \item \textbf{Client1 (Earth).} User terminal on the Earth network. Runs
+  Thunderbird and connects to Mail1 over IMAP (port 143) and SMTP submission
+  (port 587, STARTTLS).
+  \item \textbf{Client2 (Moon).} User terminal on the Moon network. Runs
+  Thunderbird and connects to Mail2 the same way.
+\end{itemize}
+
+Mail moves server to server across the DTN link: a message submitted on one mail
+server is carried as a bundle through the relay to the other. ION runs on all three
+servers, so the bundle path is node 1 (Earth) to node 2 (relay) to node 3 (Moon).
+The relay is the only path between the two networks, so all traffic between Earth
+and Moon passes through it. This is where the one-way link delay is applied,
+standing in for the Earth--Moon propagation time. Mailboxes use the mbox format,
+and each user reads mail from their local server. The topology is shown in
+Figure~\ref{fig:topology}.
+
+\begin{figure}[ht]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw, rounded corners, align=center, minimum width=3.2cm, minimum height=1.5cm},
+  cl/.style={draw, rounded corners, align=center, minimum width=3.2cm, minimum height=1cm},
+  >={Stealth[]}
+]
+\node[box] (mail1) {\textbf{Mail1 -- Earth}\\Mail Server: Postfix, Dovecot\\Username: alice\\IP: 192.168.100.10\\ION node: 1};
+\node[cl, below=1.2cm of mail1] (client1) {\textbf{Client1 -- Earth}\\Thunderbird};
+\node[box, right=2.6cm of mail1] (relay) {\textbf{Space -- Relay}\\Delay + capture\\IP: 192.168.100.1 / 192.168.200.1\\ION node: 2};
+
+\node[box, right=2.6cm of relay] (mail2) {\textbf{Mail2 -- Moon}\\Mail Server: Postfix, Dovecot\\Username: bob\\IP: 192.168.200.11\\ION node: 3};
+\node[cl, below=1.2cm of mail2] (client2) {\textbf{Client2 -- Moon}\\Thunderbird};
+\draw[<->, thick] (client1) -- node[right, font=\footnotesize]{IMAP / SMTP} (mail1);
+\draw[<->, thick] (mail1) -- (relay);
+\draw[<->, thick] (relay) -- node[above, font=\footnotesize, align=center]{DTN link\\(delay)} (mail2);
+\draw[<->, thick] (client2) -- node[right, font=\footnotesize]{IMAP / SMTP} (mail2);
+\end{tikzpicture}%
+}
+\caption{Testbed topology. Each client connects only to its local mail server. The
+relay is the only path between the Earth and Moon networks and is where the one-way
+link delay is applied.}
+\label{fig:topology}
+\end{figure}
+
+
+\paragraph{Data flow (Earth to Moon).}
+The path of a message is shown in Figure~\ref{fig:dataflow}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small, >={Stealth[]},
+  flowstep/.style={draw, rounded corners, align=center, minimum width=8.5cm, minimum height=0.85cm},
+  node distance=0.45cm
+]
+\node[flowstep] (s1) {User writes the message in Thunderbird on Client1 (Earth)};
+\node[flowstep, below=of s1] (s2) {Client1 submits it to Postfix on Mail1 over SMTP};
+\node[flowstep, below=of s2] (s3) {Mail1 hands the message to its ION node (node 1)};
+\node[flowstep, below=of s3] (s4) {ION encapsulates the message into a bundle};
+\node[flowstep, dashed, below=of s4] (s5) {Bundle is forwarded through Space (node 2) : one-way delay applied};
+\node[flowstep, below=of s5] (s6) {ION on Mail2 (node 3) receives the bundle and rebuilds the message (Moon)};
+\node[flowstep, below=of s6] (s7) {Postfix and Dovecot on Mail2 deliver it to bob's mailbox};
+\node[flowstep, below=of s7] (s8) {User reads it in Thunderbird on Client2 over IMAP};
+\foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6,s6/s7,s7/s8} \draw[->] (\a) -- (\b);
+\end{tikzpicture}
+\caption{Message flow from Earth to Moon.}
+\label{fig:dataflow}
+\end{figure}
+
+\section{Environment and Technology Selection}
+\label{sec:env}
+
+\subsection{Virtual machines over containers}
+The testbed runs on full virtual machines (Ubuntu 22.04 LTS, ARM64, under UTM on
+macOS). Containers were considered but not used. The anti-spam experiment has three
+needs that decide this:
+
+\begin{itemize}
+   \item \textbf{VMs match the real topology.} The testbed mimics three separate machines — Earth, Space, Moon — connected by a long-delay link, and full VMs naturally model this, whereas containers all share one kernel on one host.
+  \item \textbf{Simpler delay setup} Setting up ifb to delay incoming traffic is fiddly and error-prone inside containers, but it's straightforward on a VM where each node has its own kernel and network stack.
+  \item \textbf{DTN state stays isolated per node.}  Each ION node keeps its own bundle store and contact schedule, and a full VM ensures the link delay sits on the path itself rather than leaking into a node's own processing.
+\end{itemize}
+
+\section{Email stack}
+\begin{itemize}
+  \item \textbf{Postfix} was chosen for its clear interface for handing mail to an
+  external program, which is needed to pass messages to the DTN layer.
+  \item \textbf{Dovecot} was chosen because it works directly with the mbox format
+  and the local system accounts that Postfix delivers to.
+  \item \textbf{Thunderbird} was chosen as a real mail client, so the message
+  traffic in the testbed matches what a normal user would generate.
+\end{itemize}
+
+\section{DTN stack}
+\begin{itemize}
+  \item \textbf{ION-DTN} was chosen for its deep-space flight heritage and its
+  existing tool for carrying email over the Bundle Protocol, which connects
+  directly to the mail stack.
+\end{itemize}
+
+\section{Anti-Spam Tool Selection}
+\label{sec:tools}
+
+Four tools were selected, each with a different external dependency:
+
+\begin{itemize}
+  \item \textbf{SpamAssassin 3.4.6} --- content scoring that depends on DNS
+  blocklist lookups.
+  \item \textbf{Rspamd 2.7} --- content scoring with a large number of
+  asynchronous DNS lookups.
+  \item \textbf{Vipul's Razor 2.84} --- collaborative filtering through a central
+  nonce server, reached over TCP on port 2703.
+  \item \textbf{DCC 2.3.169} --- collaborative filtering through checksum servers,
+  reached over UDP on port 6277.
+\end{itemize}
+
+The four cover the main ways a filter reaches the network: blocklist DNS
+(SpamAssassin, Rspamd), a TCP request to a central reputation server (Razor), and a
+UDP request to a checksum server (DCC). Testing one tool would show only one failure
+path. 
+
+
+\section{DTN Design}
+\label{sec:dtn}
+The DTN layer uses ION-DTN 4.1.4 and BPMail. The three
+servers run ION as nodes on a single \texttt{ipn} scheme: Mail1 (Earth) is node 1,
+Space (relay) is node 2, and Mail2 (Moon) is node 3. Bundles are carried over a UDP
+convergence layer on port 4556, and the relay forwards them between the two mail
+nodes, so the path from Earth to Moon is node 1 to node 2 to node 3. The contact
+plan sets the windows during which the nodes can exchange bundles. BPMail sits above
+ION on each mail server: it takes a message from Postfix, encapsulates it into a
+bundle for the destination node, and rebuilds it on arrival. The full configuration,
+including the SDR settings, the contact plan, and the startup order, is given in the
+implementation chapter.
+
+\section{Delay Simulation Design}
+\label{sec:delay}
+
+Delay is applied with netem. The key requirement is that delay is applied to one
+direction only --- to traffic coming from the remote node --- and not to the Earth
+node's own traffic.
+
+A plain netem rule on the relay's interface delays everything that crosses it,
+including the Earth node's traffic, which would change what is being measured. To
+avoid this, ingress traffic from the remote side is redirected to an Intermediate
+Functional Block (ifb) device, and the delay is applied there. The redirect happens
+before the relay's NAT rewrites the source address, so the rule can match traffic by
+its true origin. Earth-origin traffic does not pass through this path and stays at
+normal latency. This is shown in Figure~\ref{fig:ifb}.
+
+\begin{figure}[ht]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small, >={Stealth[]},
+  box/.style={draw, rounded corners, align=center, minimum width=2.8cm, minimum height=1.3cm}
+]
+\node[box] (remote) {Remote\\node};
+\node[box, right=4.2cm of remote] (relay) {Relay (Space)\\ifb0: netem delay};
+\node[box, right=4.2cm of relay] (earth) {Earth\\node};
+
+\draw[->, thick] ([yshift=12pt]remote.east) -- node[above, font=\footnotesize, align=center]{remote-origin traffic:\\delayed (ifb ingress, pre-NAT)} ([yshift=12pt]relay.west);
+\draw[->, thick] ([yshift=12pt]relay.east) -- ([yshift=12pt]earth.west);
+\draw[->, dashed] ([yshift=-12pt]earth.west) -- node[below, font=\footnotesize, align=center]{Earth-origin traffic:\\no delay} ([yshift=-12pt]relay.east);
+\draw[->, dashed] ([yshift=-12pt]relay.west) -- ([yshift=-12pt]remote.east);
+\end{tikzpicture}%
+}
+\caption{Asymmetric delay. Traffic originating from the remote node is delayed on
+ingress through an ifb device, before NAT rewrites the source. Earth-origin traffic
+is not delayed.}
+\label{fig:ifb}
+\end{figure}
+
+Delay is the independent variable. The experiments use a representative one-way
+delay of 1.3 seconds as a deep-space operating point. The testbed allows any value
+to be set, so the same setup covers the range from short Earth--Moon delays to
+multi-minute deep-space delays.
+
+
+\section{Summary}
+\label{sec:design-summary}
+
+This chapter set out a three-node testbed for measuring anti-spam tool behaviour
+under link delay. The design uses full virtual machines for kernel and DNS
+isolation, a private resolver to give the Earth side a working DNS path, four tools
+chosen to cover the main external dependencies, and an ifb-based scheme to apply
+delay to one direction only. The next chapter describes how this design was built
+and configured, and the chapter after it presents the results.
