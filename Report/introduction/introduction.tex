@@ -1,164 +1,280 @@
 \chapter{Introduction}
 
-\section{Introduction}
+\section{Background}
 
-Delay/Disruption-Tolerant Networking (DTN) and Internet email are both store-and-forward communication systems that enable asynchronous message delivery across heterogeneous networks \cite{fall2003dtn,crocker2009ima}. DTN generalizes the store-and-forward concept as a network-layer or overlay architecture for challenged environments, whereas email is a specific application-layer service built on top of relatively well-connected IP networks.\cite{fall2003dtn,crocker2009ima}
+Communication in space is not like communication on Earth. The distances are large,
+so signals take time to travel: a one-way trip between Earth and the Moon takes
+about 1.3 seconds, and to Mars it takes minutes. Links also break for long periods,
+as bodies move and block the line of sight. The normal internet assumes the
+opposite, short delays and a connection that stays up, so its protocols fail here:
+they expect a reply within a short time and treat a missing one as an error.
 
-\section{Delay/Disruption-Tolerant Networking}
+Delay-Tolerant Networking (DTN) was designed for these conditions~\cite{rfc4838}.
+Instead of a live end-to-end connection, it uses store-and-forward: each node holds
+a message until the next link is available, then passes it on. The Bundle Protocol
+carries messages as self-contained units called bundles between DTN
+nodes~\cite{rfc9171}. This tolerates long delays and broken links, which makes DTN
+the accepted basis for interplanetary networking~\cite{kaneko-ssi}, an active area
+with real implementations~\cite{ion, velazco-smallsats}.
 
-\subsection{Concept and Motivation}
+Email is one of the basic tools people expect, so carrying it over DTN has received
+attention. A gateway translates between standard mail protocols and the Bundle
+Protocol~\cite{johnson-dtn-interplanetary-smtp-01, blanchet-dtn-email-over-bp-06},
+and open tools implement this~\cite{bpmail}, so a message can move from a mail server
+on one side of a DTN link to a mail server on the other.
 
-DTN targets ``challenged'' networking environments characterized by intermittent connectivity, long or variable delays, high error rates, and constrained resources such as power and storage.\cite{fall2003dtn,cerf2007dtnsurvey} In such environments, classical TCP/IP assumptions about continuous end-to-end paths and low round-trip time do not hold, which requires a different architectural approach.\cite{fall2003dtn}
+On any mail system, much of the incoming mail is spam, and anti-spam tools are a
+standard part of the setup. These tools do more than read the message text. They
+also test the sender and the links in the message against live network services: DNS
+blocklists of known-bad addresses, sender reputation systems, and shared databases
+of known spam. Every one of these checks sends a request to a remote server during
+the scan and waits for a fast answer before it can score that rule.
 
-Typical DTN scenarios include deep-space communication, rural and remote connectivity, ad hoc vehicular and mobile networks, and disaster-response deployments where infrastructure is damaged or overloaded.\cite{fall2003dtn,cerf2007dtnsurvey} The primary objective is to provide eventual data delivery despite disruptions, using persistent storage and opportunistic forwarding across time-varying connectivity graphs.\cite{fall2003dtn,balasubramanian2007dtnrouting}
+\section{Motivation}
 
-\subsection{DTN Architecture and Bundle Layer}
+Work on DTN email has gone into moving mail across the link, not into filtering it
+once it arrives. Yet filtering is part of running a mail service, not an optional
+extra. Consider a crewed Moon base whose users exchange email with Earth over a DTN
+link~\cite{cosby-lunar}: spam will reach it as it reaches any mail system, and the
+tools that would catch it now depend on lookups that must cross the delayed link.
 
-The canonical DTN architecture introduces a new overlay protocol layer, commonly called the bundle layer, which resides above region-specific transports (e.g., TCP, UDP, Licklider Transmission Protocol) and below applications.\cite{fall2003dtn,cerf2007dtnsurvey} Applications generate protocol data units called bundles, which encapsulate payload data together with endpoint identifiers, lifetime, priority, and optional security blocks.\cite{fall2003dtn,burleigh2022tcpcl}
+Whether those tools still work is not obvious. A DTN link breaks the assumption they
+rely on: the answer is now seconds away, or the link is down when the request is
+made. A tool might slow to a crawl while it waits, lose detection when answers arrive
+too late, give up early and let spam through, retry until it loads the link, or fail
+with no sign that it failed. Each tool reaches the network in its own way, so each
+may respond differently. None of this has been measured.
 
-Each DTN node maintains persistent storage for bundles and performs a store-carry-forward operation: bundles are stored locally, carried while the node is mobile or idle, and forwarded when a suitable contact becomes available.\cite{fall2003dtn,sobin2012dtnsurvey} Convergence-layer adapters map bundle operations onto specific underlying transports (for example, the DTN TCP Convergence-Layer Protocol) so that the bundle layer is insulated from link heterogeneity.\cite{burleigh2022tcpcl}
+This dissertation measures it. The value is in understanding how the tools behave
+under delay and why, which is a starting point for anyone who later builds spam
+filtering into interplanetary email.
 
-\subsection{DTN Nodes, Regions, and Security}
+\section{Research Question and Objectives}
 
-The architecture partitions the overall system into regions, such as terrestrial IP networks, satellite segments, and deep-space links, which may employ different lower-layer protocols and routing schemes.\cite{cerf2007dtnsurvey} The bundle layer provides interoperability across these regions using endpoint identifiers and late binding, allowing applications to communicate without being aware of underlying heterogeneity.\cite{cerf2007dtnsurvey,sobin2012dtnsurvey}
+This dissertation turns that gap into a precise question.
 
-Security is addressed using dedicated bundle security mechanisms that provide authentication, integrity protection, and confidentiality over multi-hop, disruption-prone paths.\cite{cerf2007dtnsurvey} Because DTN nodes may store data for long periods and may replicate messages to improve delivery probability, the security design also considers access control, resistance to resource exhaustion, and key management across regions.\cite{sobin2012dtnsurvey,balasubramanian2007dtnrouting}
+\paragraph{Research question.}
+The primary research question is:
 
-\subsection{Routing, Scheduling, and Buffer Management}
+\begin{quote}
+How do existing anti-spam tools behave when run over a delay-tolerant network link,
+and what mechanisms drive that behaviour?
+\end{quote}
 
-Routing in DTNs differs fundamentally from traditional IP routing because an end-to-end path between source and destination may not exist at any given time.\cite{balasubramanian2007dtnrouting,sobin2012dtnsurvey} Instead, routing algorithms operate over time-varying or probabilistic contact graphs, taking into account predicted or observed node mobility and contact opportunities.\cite{sobin2012dtnsurvey}
+It breaks into three sub-questions:
 
-Existing DTN routing schemes can be broadly classified by the degree of replication and the information they exploit: epidemic and multi-copy protocols maximize delivery probability at the cost of bandwidth and buffer usage, while single-copy or quota-based schemes trade delivery ratio for reduced overhead.\cite{balasubramanian2007dtnrouting,sobin2012dtnsurvey} Since contacts are intermittent and buffers are limited, joint scheduling and buffer management policies are required to decide which bundles to transmit or drop according to priorities, deadlines, and resource constraints.\cite{sobin2012dtnsurvey}
+\begin{itemize}
+  \item How does each tool's network dependence interact with propagation delay?
+  \item What failure modes appear under delay, and what causes them?
+  \item How do the tools' own timeout and retry settings behave under delay, and
+  does tuning them change the outcome?
+\end{itemize}
 
-\section{Internet Email Architecture}
+\paragraph{Objectives.}
+To answer this, the dissertation sets out to:
 
-\subsection{Service Model and Roles}
+\begin{enumerate}
+  \item Build a controlled Earth--Moon DTN email testbed using real mail and DTN
+  software, with a link delay that can be set to a chosen value.
+  \item Assemble a representative email corpus and a repeatable method to scan it
+  and record per-email timing, verdicts, and network traffic.
+  \item Evaluate four tools, SpamAssassin, Rspamd, Vipul's Razor, and DCC, chosen to
+  cover the main ways a filter depends on the network.
+  \item For each tool, compare its behaviour under delay against a no-delay baseline
+  and identify the mechanisms behind the differences and any failure modes.
+  \item Draw the cross-tool comparison: what generalises about anti-spam filtering
+  that depends on synchronous network services when it runs under delay.
+\end{enumerate}
 
-Internet email is an asynchronous application-layer service that delivers messages between users identified by email addresses of the form \texttt{local-part@domain}.\cite{crocker2009ima,klensin2008smtp} The system is decomposed into functional roles including Message User Agents (MUAs), Message Submission Agents (MSAs), Message Transfer Agents (MTAs), Message Delivery Agents (MDAs), and Mail Access Agents.\cite{crocker2009ima}
+\paragraph{Scope.}
+This is a behavioural study: it characterises and explains the tools' response to
+delay, and does not propose or build a filtering system for interplanetary email.
 
-MUAs (such as desktop clients or webmail front-ends) are responsible for message composition, display, and user interaction, but they offload submission, relay, and storage to server-side agents.\cite{crocker2009ima} MSAs accept messages from MUAs, apply initial checks, and hand them to MTAs, which relay messages between domains until they reach an MDA that deposits them into per-user mailboxes.\cite{crocker2009ima,klensin2008smtp}
+\paragraph{Contributions.}
+The dissertation makes three contributions:
 
-\subsection{Protocol Suite: SMTP, POP, IMAP, MIME}
+\begin{itemize}
+  \item A reproducible Earth--Moon DTN email testbed for evaluating mail-layer tools
+  under controlled delay.
+  \item An empirical, mechanism-level account of how four anti-spam tools behave
+  under delay, including the failure modes and their causes.
+  \item A measurement method that separates sourced fact from interpretation,
+  controls for blocklist drift, and uses back-to-back runs so that delay effects can
+  be isolated.
+\end{itemize}
 
-The Simple Mail Transfer Protocol (SMTP) defines the submission and relay of messages between MSAs and MTAs, including envelope commands and response codes for reliable transfer \cite{klensin2008smtp}. Originally designed for clear text operation and implicit trust between servers, SMTP has been extended with authentication and encryption mechanisms such as SMTP AUTH and STARTTLS.\cite{klensin2008smtp}
+\section{Dissertation Overview}
 
-For mailbox access, the Post Office Protocol version 3 (POP3) supports simple download-and-delete retrieval, while the Internet Message Access Protocol (IMAP) offers folder hierarchies, server-side search, and synchronization across multiple clients and devices.\cite{crispin2003imap} At the message format level, the Internet Message Format standard and Multipurpose Internet Mail Extensions (MIME) specify headers, structure, multiple body parts, and attachments, enabling rich content and internationalization.\cite{resnick2008imf}
+This dissertation is organised into six chapters. Chapter~1 has introduced the
+problem, the research question, and the objectives. Chapter~2 reviews the
+background: delay-tolerant networking and the Bundle Protocol, the email system and
+how mail is carried over DTN, and the anti-spam tools and the network services they
+depend on. Chapter~3 describes the design of the testbed, including the node layout,
+the choice of software, and the delay simulation. Chapter~4 covers the
+implementation, from building the nodes to configuring the mail, DTN, and anti-spam
+software. Chapter~5 presents the evaluation: each of the four tools is measured
+under delay against a no-delay baseline, and the results are compared. Chapter~6
+concludes and sets out directions for future work.
 
-\subsection{Security and Anti-Abuse Mechanisms}
+% \section{Introduction}
 
-Traditional email architecture did not include end-to-end confidentiality, strong sender authentication, or robust abuse controls, making it vulnerable to spoofing, spam, and phishing \cite{crocker2009ima}. In practice, deployments mitigate these weaknesses by combining transport-layer security (TLS), server and user authentication, and extensive content-based filtering, often using machine learning to classify spam and malicious messages.\cite{crocker2009ima,buccafurri2023sae}
+% Delay/Disruption-Tolerant Networking (DTN) and Internet email are both store-and-forward communication systems that enable asynchronous message delivery across heterogeneous networks \cite{fall2003dtn,crocker2009ima}. DTN generalizes the store-and-forward concept as a network-layer or overlay architecture for challenged environments, whereas email is a specific application-layer service built on top of relatively well-connected IP networks.\cite{fall2003dtn,crocker2009ima}
 
-Domain-level authentication and policy mechanisms such as Sender Policy Framework (SPF), DomainKeys Identified Mail (DKIM), and DMARC enable domains to assert which hosts may send mail on their behalf and to specify handling rules for authentication failures.\cite{crocker2009ima} Additional secure application architectures have been proposed that overlay existing email infrastructure with stronger identity, integrity, and legal guarantees, while preserving compatibility with standard protocols.\cite{buccafurri2023sae}
+% \section{Delay/Disruption-Tolerant Networking}
 
-\section{Comparison of DTN and Email Architectures}
+% \subsection{Concept and Motivation}
 
-Both DTN and Internet email rely on asynchronous, store-and-forward operation, with intermediate nodes temporarily buffering data before forwarding it to the destination.\cite{fall2003dtn,crocker2009ima} However, DTN is conceived as a general-purpose network-layer architecture for environments with extreme delay and disruption, while email is a specific application protocol suite designed for relatively stable IP networks \cite{fall2003dtn,klensin2008smtp}.
+% DTN targets ``challenged'' networking environments characterized by intermittent connectivity, long or variable delays, high error rates, and constrained resources such as power and storage.\cite{fall2003dtn,cerf2007dtnsurvey} In such environments, classical TCP/IP assumptions about continuous end-to-end paths and low round-trip time do not hold, which requires a different architectural approach.\cite{fall2003dtn}
 
-DTN introduces a unified bundle layer to integrate heterogeneous underlying networks and explicitly models time-varying connectivity and contact opportunities \cite{fall2003dtn,cerf2007dtnsurvey}. On the contrary, the email architecture builds on existing IP transport and focuses on application-level roles, standardized message formats, and security mechanisms for addressing and content-level
+% Typical DTN scenarios include deep-space communication, rural and remote connectivity, ad hoc vehicular and mobile networks, and disaster-response deployments where infrastructure is damaged or overloaded.\cite{fall2003dtn,cerf2007dtnsurvey} The primary objective is to provide eventual data delivery despite disruptions, using persistent storage and opportunistic forwarding across time-varying connectivity graphs.\cite{fall2003dtn,balasubramanian2007dtnrouting}
+
+% \subsection{DTN Architecture and Bundle Layer}
+
+% The canonical DTN architecture introduces a new overlay protocol layer, commonly called the bundle layer, which resides above region-specific transports (e.g., TCP, UDP, Licklider Transmission Protocol) and below applications.\cite{fall2003dtn,cerf2007dtnsurvey} Applications generate protocol data units called bundles, which encapsulate payload data together with endpoint identifiers, lifetime, priority, and optional security blocks.\cite{fall2003dtn,burleigh2022tcpcl}
+
+% Each DTN node maintains persistent storage for bundles and performs a store-carry-forward operation: bundles are stored locally, carried while the node is mobile or idle, and forwarded when a suitable contact becomes available.\cite{fall2003dtn,sobin2012dtnsurvey} Convergence-layer adapters map bundle operations onto specific underlying transports (for example, the DTN TCP Convergence-Layer Protocol) so that the bundle layer is insulated from link heterogeneity.\cite{burleigh2022tcpcl}
+
+% \subsection{DTN Nodes, Regions, and Security}
+
+% The architecture partitions the overall system into regions, such as terrestrial IP networks, satellite segments, and deep-space links, which may employ different lower-layer protocols and routing schemes.\cite{cerf2007dtnsurvey} The bundle layer provides interoperability across these regions using endpoint identifiers and late binding, allowing applications to communicate without being aware of underlying heterogeneity.\cite{cerf2007dtnsurvey,sobin2012dtnsurvey}
+
+% Security is addressed using dedicated bundle security mechanisms that provide authentication, integrity protection, and confidentiality over multi-hop, disruption-prone paths.\cite{cerf2007dtnsurvey} Because DTN nodes may store data for long periods and may replicate messages to improve delivery probability, the security design also considers access control, resistance to resource exhaustion, and key management across regions.\cite{sobin2012dtnsurvey,balasubramanian2007dtnrouting}
+
+% \subsection{Routing, Scheduling, and Buffer Management}
+
+% Routing in DTNs differs fundamentally from traditional IP routing because an end-to-end path between source and destination may not exist at any given time.\cite{balasubramanian2007dtnrouting,sobin2012dtnsurvey} Instead, routing algorithms operate over time-varying or probabilistic contact graphs, taking into account predicted or observed node mobility and contact opportunities.\cite{sobin2012dtnsurvey}
+
+% Existing DTN routing schemes can be broadly classified by the degree of replication and the information they exploit: epidemic and multi-copy protocols maximize delivery probability at the cost of bandwidth and buffer usage, while single-copy or quota-based schemes trade delivery ratio for reduced overhead.\cite{balasubramanian2007dtnrouting,sobin2012dtnsurvey} Since contacts are intermittent and buffers are limited, joint scheduling and buffer management policies are required to decide which bundles to transmit or drop according to priorities, deadlines, and resource constraints.\cite{sobin2012dtnsurvey}
+
+% \section{Internet Email Architecture}
+
+% \subsection{Service Model and Roles}
+
+% Internet email is an asynchronous application-layer service that delivers messages between users identified by email addresses of the form \texttt{local-part@domain}.\cite{crocker2009ima,klensin2008smtp} The system is decomposed into functional roles including Message User Agents (MUAs), Message Submission Agents (MSAs), Message Transfer Agents (MTAs), Message Delivery Agents (MDAs), and Mail Access Agents.\cite{crocker2009ima}
+
+% MUAs (such as desktop clients or webmail front-ends) are responsible for message composition, display, and user interaction, but they offload submission, relay, and storage to server-side agents.\cite{crocker2009ima} MSAs accept messages from MUAs, apply initial checks, and hand them to MTAs, which relay messages between domains until they reach an MDA that deposits them into per-user mailboxes.\cite{crocker2009ima,klensin2008smtp}
+
+% \subsection{Protocol Suite: SMTP, POP, IMAP, MIME}
+
+% The Simple Mail Transfer Protocol (SMTP) defines the submission and relay of messages between MSAs and MTAs, including envelope commands and response codes for reliable transfer \cite{klensin2008smtp}. Originally designed for clear text operation and implicit trust between servers, SMTP has been extended with authentication and encryption mechanisms such as SMTP AUTH and STARTTLS.\cite{klensin2008smtp}
+
+% For mailbox access, the Post Office Protocol version 3 (POP3) supports simple download-and-delete retrieval, while the Internet Message Access Protocol (IMAP) offers folder hierarchies, server-side search, and synchronization across multiple clients and devices.\cite{crispin2003imap} At the message format level, the Internet Message Format standard and Multipurpose Internet Mail Extensions (MIME) specify headers, structure, multiple body parts, and attachments, enabling rich content and internationalization.\cite{resnick2008imf}
+
+% \subsection{Security and Anti-Abuse Mechanisms}
+
+% Traditional email architecture did not include end-to-end confidentiality, strong sender authentication, or robust abuse controls, making it vulnerable to spoofing, spam, and phishing \cite{crocker2009ima}. In practice, deployments mitigate these weaknesses by combining transport-layer security (TLS), server and user authentication, and extensive content-based filtering, often using machine learning to classify spam and malicious messages.\cite{crocker2009ima,buccafurri2023sae}
+
+% Domain-level authentication and policy mechanisms such as Sender Policy Framework (SPF), DomainKeys Identified Mail (DKIM), and DMARC enable domains to assert which hosts may send mail on their behalf and to specify handling rules for authentication failures.\cite{crocker2009ima} Additional secure application architectures have been proposed that overlay existing email infrastructure with stronger identity, integrity, and legal guarantees, while preserving compatibility with standard protocols.\cite{buccafurri2023sae}
+
+% \section{Comparison of DTN and Email Architectures}
+
+% Both DTN and Internet email rely on asynchronous, store-and-forward operation, with intermediate nodes temporarily buffering data before forwarding it to the destination.\cite{fall2003dtn,crocker2009ima} However, DTN is conceived as a general-purpose network-layer architecture for environments with extreme delay and disruption, while email is a specific application protocol suite designed for relatively stable IP networks \cite{fall2003dtn,klensin2008smtp}.
+
+% DTN introduces a unified bundle layer to integrate heterogeneous underlying networks and explicitly models time-varying connectivity and contact opportunities \cite{fall2003dtn,cerf2007dtnsurvey}. On the contrary, the email architecture builds on existing IP transport and focuses on application-level roles, standardized message formats, and security mechanisms for addressing and content-level
 
 
-\section{Bundle Protocol in Interplanetary DTN}
+% \section{Bundle Protocol in Interplanetary DTN}
 
-The Bundle Protocol (BP) is the core network protocol of Delay/Disruption-Tolerant Networking (DTN), designed to support long-delay and intermittently connected paths using store-and-forward transfer of application data units called bundles~\cite{Burleigh2007ION}. In interplanetary scenarios, BP is typically deployed as an overlay over one or more convergence layers (such as TCP, LTP, or space link protocols), providing persistent storage and late binding of next hops so that disruptions that would break conventional end-to-end transports do not prevent eventual delivery~\cite{Burleigh2007ION}. This overlay role allows BP to act as a unifying backbone across heterogeneous regional networks, particularly where deep-space links have radically different characteristics from local terrestrial segments~\cite{Burleigh2007ION}.
+% The Bundle Protocol (BP) is the core network protocol of Delay/Disruption-Tolerant Networking (DTN), designed to support long-delay and intermittently connected paths using store-and-forward transfer of application data units called bundles~\cite{Burleigh2007ION}. In interplanetary scenarios, BP is typically deployed as an overlay over one or more convergence layers (such as TCP, LTP, or space link protocols), providing persistent storage and late binding of next hops so that disruptions that would break conventional end-to-end transports do not prevent eventual delivery~\cite{Burleigh2007ION}. This overlay role allows BP to act as a unifying backbone across heterogeneous regional networks, particularly where deep-space links have radically different characteristics from local terrestrial segments~\cite{Burleigh2007ION}.
 
-\subsection{Interplanetary Architecture and Gateways}
+% \subsection{Interplanetary Architecture and Gateways}
 
-Proposed interplanetary network architectures generally assume that local networks on Earth, the Moon, and Mars are IP-based, while deep-space and interplanetary trunks use BP to interconnect these IP ``islands''~\cite{Johnson2024InterplanetarySMTP}. IP/BP gateways terminate local IP sessions, encapsulate application-layer traffic (for example HTTP or SMTP) into bundle payloads, and forward those bundles over scheduled BP contacts so that remote gateways can reconstruct the original IP traffic within their own local environments~\cite{Johnson2024InterplanetarySMTP}. This architecture enables reuse of existing Internet applications without requiring native end-to-end IP connectivity across long-delay space links~\cite{Johnson2024InterplanetarySMTP}.
+% Proposed interplanetary network architectures generally assume that local networks on Earth, the Moon, and Mars are IP-based, while deep-space and interplanetary trunks use BP to interconnect these IP ``islands''~\cite{Johnson2024InterplanetarySMTP}. IP/BP gateways terminate local IP sessions, encapsulate application-layer traffic (for example HTTP or SMTP) into bundle payloads, and forward those bundles over scheduled BP contacts so that remote gateways can reconstruct the original IP traffic within their own local environments~\cite{Johnson2024InterplanetarySMTP}. This architecture enables reuse of existing Internet applications without requiring native end-to-end IP connectivity across long-delay space links~\cite{Johnson2024InterplanetarySMTP}.
 
-\subsection{Naming, DNS, and BP Node Addressing}
+% \subsection{Naming, DNS, and BP Node Addressing}
 
-To integrate BP-based interplanetary connectivity with name resolution, an interplanetary DNS model has been proposed in which each planetary body operates its own DNS root system and associated top-level domains~\cite{Johnson2025InterplanetaryDNS}. In this model, DNS records for those TLDs resolve primarily to local IP/BP gateways rather than directly reachable off-world IP addresses, and can include resource records that map domain names to BP node identifiers as well as MX records pointing to interplanetary mail gateways~\cite{Johnson2025InterplanetaryDNS}. DNSSEC can still be applied with distinct trust anchors per world, while most DNS traffic remains local and only application data is carried over BP between planets~\cite{Johnson2025InterplanetaryDNS}.
+% To integrate BP-based interplanetary connectivity with name resolution, an interplanetary DNS model has been proposed in which each planetary body operates its own DNS root system and associated top-level domains~\cite{Johnson2025InterplanetaryDNS}. In this model, DNS records for those TLDs resolve primarily to local IP/BP gateways rather than directly reachable off-world IP addresses, and can include resource records that map domain names to BP node identifiers as well as MX records pointing to interplanetary mail gateways~\cite{Johnson2025InterplanetaryDNS}. DNSSEC can still be applied with distinct trust anchors per world, while most DNS traffic remains local and only application data is carried over BP between planets~\cite{Johnson2025InterplanetaryDNS}.
 
-\subsection{Interplanetary Email over the Bundle Protocol}
+% \subsection{Interplanetary Email over the Bundle Protocol}
 
-Email is a prominent application driving the deployment of DTN and BP in interplanetary contexts, where entire SMTP exchanges or packeted email messages are encapsulated as bundle payloads and transported between IP networks on different planetary bodies~\cite{Johnson2024InterplanetarySMTP,Blanchet2025EmailOverBP}. One proposal describes several deployment models where Mail Transfer Agents (MTAs) cooperate with Bundle Protocol Agents (BPAs) to move email between Earth and remote BP nodes, including cases in which the remote node has only BP connectivity and relies on a local shim to provide SMTP semantics to users or applications~\cite{Johnson2024InterplanetarySMTP}. A complementary specification defines a concise encapsulation based on Batch SMTP media types and a dedicated BP service number, allowing conventional MTAs at each end to operate unchanged while the interplanetary hop is handled solely via BP~\cite{Blanchet2025EmailOverBP}.
+% Email is a prominent application driving the deployment of DTN and BP in interplanetary contexts, where entire SMTP exchanges or packeted email messages are encapsulated as bundle payloads and transported between IP networks on different planetary bodies~\cite{Johnson2024InterplanetarySMTP,Blanchet2025EmailOverBP}. One proposal describes several deployment models where Mail Transfer Agents (MTAs) cooperate with Bundle Protocol Agents (BPAs) to move email between Earth and remote BP nodes, including cases in which the remote node has only BP connectivity and relies on a local shim to provide SMTP semantics to users or applications~\cite{Johnson2024InterplanetarySMTP}. A complementary specification defines a concise encapsulation based on Batch SMTP media types and a dedicated BP service number, allowing conventional MTAs at each end to operate unchanged while the interplanetary hop is handled solely via BP~\cite{Blanchet2025EmailOverBP}.
 
-\section{Interplanetary Overlay Network (ION)}
+% \section{Interplanetary Overlay Network (ION)}
 
-The Interplanetary Overlay Network (ION) is a mature, open-source implementation of the Delay/Disruption-Tolerant Networking (DTN) Bundle Protocol (BP), developed primarily for space communications but also applicable to terrestrial challenged networks~\cite{Burleigh2007ION}. ION provides a complete DTN node stack including bundle processing, contact plan management, convergence layer protocols (such as TCPCL and LTP), and administrative tools for monitoring and management~\cite{ION2025}. It has been deployed in NASA missions, satellite testbeds, and research environments, serving as the de facto reference implementation for BP evaluation and experimentation~\cite{Burleigh2007ION,ION2025}.
+% The Interplanetary Overlay Network (ION) is a mature, open-source implementation of the Delay/Disruption-Tolerant Networking (DTN) Bundle Protocol (BP), developed primarily for space communications but also applicable to terrestrial challenged networks~\cite{Burleigh2007ION}. ION provides a complete DTN node stack including bundle processing, contact plan management, convergence layer protocols (such as TCPCL and LTP), and administrative tools for monitoring and management~\cite{ION2025}. It has been deployed in NASA missions, satellite testbeds, and research environments, serving as the de facto reference implementation for BP evaluation and experimentation~\cite{Burleigh2007ION,ION2025}.
 
-\subsection{System Architecture}
+% \subsection{System Architecture}
 
-ION operates as a distributed daemon-based system where the primary \texttt{iond} process manages the global DTN node state, bundle storage, and contact scheduling~\cite{Burleigh2007ION}. Bundles are persisted in a SQLite database for reliability across restarts, with separate tables tracking bundle metadata, custody records, and delivery status to support proactive custody transfer and retransmission~\cite{ION2025}. The architecture separates core BP logic from convergence layers via a plugin model, allowing ION to adapt to diverse underlying links including UDP, TCP, LTP, and space data link protocols without modifying the bundle core~\cite{Burleigh2007ION,rfc9171}.
-
-
-\subsection{Applications and Deployment}
-
-ION ships with reference applications demonstrating BP usage, including the Bundle Relay Utility (BRU) for simple store-forward, the DTNperf tool for throughput measurement, and higher-layer protocol shims for email, file transfer, and web services over BP~\cite{ION2025}. It has been flight-qualified for NASA's Deep Space Network and CubeSat missions, with operational deployments managing terabytes of scientific data across solar system distances~\cite{Burleigh2007ION}. The codebase remains actively maintained with contributions from JPL, ESA, and academic partners, supporting both RFC 5050 BPv6 and emerging BPv7 specifications~\cite{ION2025,rfc9171}.
-
-\section{Postfix}
-Postfix is a Mail Transfer Agent (MTA) that handles sending and receiving emails using the Simple Mail Transfer Protocol (SMTP). It is responsible for transferring emails between mail servers and delivering messages to local user mailboxes in a secure and efficient manner.
-
-\section{Dovecot}
-Dovecot is a Mail Delivery Agent (MDA) and IMAP/POP3 server that allows users to access and read their emails stored on the mail server. It manages mailbox formats such as Maildir and provides authentication and retrieval services for email clients.
-
-\section{Thunderbird}
-Thunderbird is a Mail User Agent (MUA) that provides a graphical interface for users to compose, send, receive, and manage emails. It communicates with Postfix for sending emails via SMTP and with Dovecot for retrieving emails using IMAP or POP3.
-
-\section{Virtual Machines (VMs)}
-Virtual Machines are isolated computing environments that run independent operating systems on a single physical host. In this setup, VMs are used to simulate separate mail servers and clients, enabling realistic testing and experimentation with email system architectures.
-
-\section{ION DTN}
-ION-DTN is the reference implementation of Delay-Tolerant Networking protocols by NASA's Jet Propulsion Laboratory, tailored for space communications where standard Internet protocols are unsuitable because of very high latencies, frequent disconnections, and highly asymmetric data rates. ION implements the Bundle Protocol~\cite{rfc9171}, offering store-and-forward message switching for reliable data transport over challenged networks. The protocol uses Contact Graph Routing (CGR) to determine optimal paths for forwarding messages according to expected contact opportunities between nodes in the network, which is particularly useful for interplanetary communications where link schedules are deterministic but discontinuous. ION also supports a variety of convergence layer adapters, including UDP (for testing on Earth), LTP (Licklider Transmission Protocol~\cite{rfc5326}, for deep space communications), and TCP~\cite{rfc7242}, allowing the protocol to be used in a wide range of network environments. The Bundle Security Protocol~\cite{rfc9172} provides end-to-end authentication and confidentiality for bundles traversing untrusted intermediary nodes.  Originally developed for Mars exploration and the Deep Space Network, ION has been successfully tested in space communications and applied to Earth-based scenarios where disruption-tolerant networking is required, such as disaster recovery networks, military communications, and remote sensing.
+% ION operates as a distributed daemon-based system where the primary \texttt{iond} process manages the global DTN node state, bundle storage, and contact scheduling~\cite{Burleigh2007ION}. Bundles are persisted in a SQLite database for reliability across restarts, with separate tables tracking bundle metadata, custody records, and delivery status to support proactive custody transfer and retransmission~\cite{ION2025}. The architecture separates core BP logic from convergence layers via a plugin model, allowing ION to adapt to diverse underlying links including UDP, TCP, LTP, and space data link protocols without modifying the bundle core~\cite{Burleigh2007ION,rfc9171}.
 
 
-\section{BPMail}
+% \subsection{Applications and Deployment}
 
-\subsection{Introduction}
+% ION ships with reference applications demonstrating BP usage, including the Bundle Relay Utility (BRU) for simple store-forward, the DTNperf tool for throughput measurement, and higher-layer protocol shims for email, file transfer, and web services over BP~\cite{ION2025}. It has been flight-qualified for NASA's Deep Space Network and CubeSat missions, with operational deployments managing terabytes of scientific data across solar system distances~\cite{Burleigh2007ION}. The codebase remains actively maintained with contributions from JPL, ESA, and academic partners, supporting both RFC 5050 BPv6 and emerging BPv7 specifications~\cite{ION2025,rfc9171}.
 
-BPMail serves as a bridge between the conventional email and DTN. When a email is sent from the sender using mail servers like postfix, BPMail intercepts it and encapsulates into Bundle payload and transfer it to the DTN via DTPC. Similarly, when a email arrives in the receiver's side, BPMail decompresses the bundle and reconstructs the original MIME message and deliver it to to receiver's mail server. 
+% \section{Postfix}
+% Postfix is a Mail Transfer Agent (MTA) that handles sending and receiving emails using the Simple Mail Transfer Protocol (SMTP). It is responsible for transferring emails between mail servers and delivering messages to local user mailboxes in a secure and efficient manner.
 
-\subsection{Integration with Postfix}
+% \section{Dovecot}
+% Dovecot is a Mail Delivery Agent (MDA) and IMAP/POP3 server that allows users to access and read their emails stored on the mail server. It manages mailbox formats such as Maildir and provides authentication and retrieval services for email clients.
 
-BPMail must be integrated with Postfix so that emails destined for the remote DTN node are routed through BPMail's transport rather than the default SMTP delivery path. This integration require configuring BPMail both in sender's side and receiver's side so that the DTN transport is handled seamlessly without any changes to how users send or receive email. On the sending side, Postfix was configured with a custom transport map that routes emails destined for the remote mail server through BPMail instead of attempting direct SMTP delivery. A pipe transport entry was added to Postfix's master.cf, which instructs Postfix to pass outgoing emails to bpmailsend via standard input. On the receiving side, a background daemon continuously runs bpmailrecv, which blocks and waits for incoming DTPC payloads. When an email bundle arrives, bpmailrecv reconstructs the original MIME message and pipes it directly to sendmail, which reintroduces the email into the local Postfix mail system. From here, Postfix handles the delivery of the email to the receiver's mailbox.
+% \section{Thunderbird}
+% Thunderbird is a Mail User Agent (MUA) that provides a graphical interface for users to compose, send, receive, and manage emails. It communicates with Postfix for sending emails via SMTP and with Dovecot for retrieving emails using IMAP or POP3.
 
-\section{Anti-Spam Systems}
-Anti-spam systems are software tools deployed on mail servers to filter 
-unwanted bulk or malicious email before it reaches recipients. They work 
-by analysing incoming messages against known indicators of spam such as 
-sender IP reputation, message content patterns, and email authentication 
-records and assigning a verdict or score that determines whether a message 
-should be accepted, flagged, or rejected. These tools rely on real-time 
-network queries to external databases and blacklists to make their 
-decisions, making them dependent on low-latency internet connectivity 
-to function effectively.
+% \section{Virtual Machines (VMs)}
+% Virtual Machines are isolated computing environments that run independent operating systems on a single physical host. In this setup, VMs are used to simulate separate mail servers and clients, enabling realistic testing and experimentation with email system architectures.
 
-\subsection{SpamAssassin}
-SpamAssassin is a rule-based anti-spam tool that processes incoming email 
-by applying a combination of local content rules, DNS-based blacklist (DNSBL) 
-lookups, and email authentication checks \cite{spamassassin}. For each message, 
-it queries multiple external services including IP blacklists, domain blacklists, 
-URI blacklists, and sender accreditation services to evaluate the reputation of 
-the sender IP and any URLs found in the message body. The number of DNS queries 
-it issues scales with the content of the email, increasing with the number of 
-URLs present.
+% \section{ION DTN}
+% ION-DTN is the reference implementation of Delay-Tolerant Networking protocols by NASA's Jet Propulsion Laboratory, tailored for space communications where standard Internet protocols are unsuitable because of very high latencies, frequent disconnections, and highly asymmetric data rates. ION implements the Bundle Protocol~\cite{rfc9171}, offering store-and-forward message switching for reliable data transport over challenged networks. The protocol uses Contact Graph Routing (CGR) to determine optimal paths for forwarding messages according to expected contact opportunities between nodes in the network, which is particularly useful for interplanetary communications where link schedules are deterministic but discontinuous. ION also supports a variety of convergence layer adapters, including UDP (for testing on Earth), LTP (Licklider Transmission Protocol~\cite{rfc5326}, for deep space communications), and TCP~\cite{rfc7242}, allowing the protocol to be used in a wide range of network environments. The Bundle Security Protocol~\cite{rfc9172} provides end-to-end authentication and confidentiality for bundles traversing untrusted intermediary nodes.  Originally developed for Mars exploration and the Deep Space Network, ION has been successfully tested in space communications and applied to Earth-based scenarios where disruption-tolerant networking is required, such as disaster recovery networks, military communications, and remote sensing.
 
-\subsection{Rspamd}
-Rspamd is a multi-method anti-spam system that performs DNSBL lookups, SPF, 
-DKIM, and DMARC verification, URI blacklist checks, and ASN lookups in parallel 
-for each incoming message \cite{rspamd}. It queries a broad set of external 
-DNS-based services per email and runs continuous background 
-monitoring probes against those services independent of per-email processing. 
-It assigns a weighted score based on the rules triggered and takes a configured 
-action such as adding headers, greylisting, or rejecting based on 
-that score.
 
-\subsection{Vipul's Razor}
-Vipul's Razor is a collaborative spam-detection tool that computes fuzzy 
-checksums of email body content and queries Cloudmark's centralised catalogue 
-servers over TCP port 2703 to check whether those checksums match previously 
-reported spam \cite{razor}. It requires two layers of network connectivity: a 
-DNS lookup to resolve Cloudmark server hostnames, followed by a TCP session to 
-one of the catalogue servers. Unlike DNSBL-based tools, Razor does not evaluate 
-sender IP reputation, it focuses entirely on whether the message content 
-itself has been reported as spam by other users.
+% \section{BPMail}
 
-\subsection{DCC (Distributed Checksum Clearinghouse)}
-DCC is a distributed spam-detection system that computes three types of 
-checksums, Body, Fuz1, and Fuz2 from each incoming message and submits 
-them to a network of globally distributed servers over UDP port 6277 \cite{dcc}. 
-Those servers maintain counts of how many recipients have received messages with 
-matching checksums; messages seen by a large number of recipients are classified 
-as bulk mail. Unlike DNSBL tools, DCC does not check sender reputation, and 
-unlike Razor, it does not rely on user-reported spam signatures. It detects 
-spam purely based on volume of distribution.
+% \subsection{Introduction}
+
+% BPMail serves as a bridge between the conventional email and DTN. When a email is sent from the sender using mail servers like postfix, BPMail intercepts it and encapsulates into Bundle payload and transfer it to the DTN via DTPC. Similarly, when a email arrives in the receiver's side, BPMail decompresses the bundle and reconstructs the original MIME message and deliver it to to receiver's mail server. 
+
+% \subsection{Integration with Postfix}
+
+% BPMail must be integrated with Postfix so that emails destined for the remote DTN node are routed through BPMail's transport rather than the default SMTP delivery path. This integration require configuring BPMail both in sender's side and receiver's side so that the DTN transport is handled seamlessly without any changes to how users send or receive email. On the sending side, Postfix was configured with a custom transport map that routes emails destined for the remote mail server through BPMail instead of attempting direct SMTP delivery. A pipe transport entry was added to Postfix's master.cf, which instructs Postfix to pass outgoing emails to bpmailsend via standard input. On the receiving side, a background daemon continuously runs bpmailrecv, which blocks and waits for incoming DTPC payloads. When an email bundle arrives, bpmailrecv reconstructs the original MIME message and pipes it directly to sendmail, which reintroduces the email into the local Postfix mail system. From here, Postfix handles the delivery of the email to the receiver's mailbox.
+
+% \section{Anti-Spam Systems}
+% Anti-spam systems are software tools deployed on mail servers to filter 
+% unwanted bulk or malicious email before it reaches recipients. They work 
+% by analysing incoming messages against known indicators of spam such as 
+% sender IP reputation, message content patterns, and email authentication 
+% records and assigning a verdict or score that determines whether a message 
+% should be accepted, flagged, or rejected. These tools rely on real-time 
+% network queries to external databases and blacklists to make their 
+% decisions, making them dependent on low-latency internet connectivity 
+% to function effectively.
+
+% \subsection{SpamAssassin}
+% SpamAssassin is a rule-based anti-spam tool that processes incoming email 
+% by applying a combination of local content rules, DNS-based blacklist (DNSBL) 
+% lookups, and email authentication checks \cite{spamassassin}. For each message, 
+% it queries multiple external services including IP blacklists, domain blacklists, 
+% URI blacklists, and sender accreditation services to evaluate the reputation of 
+% the sender IP and any URLs found in the message body. The number of DNS queries 
+% it issues scales with the content of the email, increasing with the number of 
+% URLs present.
+
+% \subsection{Rspamd}
+% Rspamd is a multi-method anti-spam system that performs DNSBL lookups, SPF, 
+% DKIM, and DMARC verification, URI blacklist checks, and ASN lookups in parallel 
+% for each incoming message \cite{rspamd}. It queries a broad set of external 
+% DNS-based services per email and runs continuous background 
+% monitoring probes against those services independent of per-email processing. 
+% It assigns a weighted score based on the rules triggered and takes a configured 
+% action such as adding headers, greylisting, or rejecting based on 
+% that score.
+
+% \subsection{Vipul's Razor}
+% Vipul's Razor is a collaborative spam-detection tool that computes fuzzy 
+% checksums of email body content and queries Cloudmark's centralised catalogue 
+% servers over TCP port 2703 to check whether those checksums match previously 
+% reported spam \cite{razor}. It requires two layers of network connectivity: a 
+% DNS lookup to resolve Cloudmark server hostnames, followed by a TCP session to 
+% one of the catalogue servers. Unlike DNSBL-based tools, Razor does not evaluate 
+% sender IP reputation, it focuses entirely on whether the message content 
+% itself has been reported as spam by other users.
+
+% \subsection{DCC (Distributed Checksum Clearinghouse)}
+% DCC is a distributed spam-detection system that computes three types of 
+% checksums, Body, Fuz1, and Fuz2 from each incoming message and submits 
+% them to a network of globally distributed servers over UDP port 6277 \cite{dcc}. 
+% Those servers maintain counts of how many recipients have received messages with 
+% matching checksums; messages seen by a large number of recipients are classified 
+% as bulk mail. Unlike DNSBL tools, DCC does not check sender reputation, and 
+% unlike Razor, it does not rely on user-reported spam signatures. It detects 
+% spam purely based on volume of distribution.

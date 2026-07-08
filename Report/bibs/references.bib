@@ -1,0 +1,264 @@
+@techreport{cosby-lunar,
+  author      = {Cosby, Matthew and Tai, Wallace},
+  title       = {{Lunar Communications Architecture Study Report}},
+  institution = {Interagency Operations Advisory Group (IOAG)},
+  year        = {2022},
+  month       = jan,
+  url         = {https://www.ioag.org/Public%20Documents/Lunar%20communications%20architecture%20study%20report%20FINAL%20v1.3.pdf},
+  note        = {Accessed 2026-07-07}
+}
+
+@techreport{kaneko-ssi,
+  author      = {Kaneko, Yosuke and Cerf, Vinton and Pace, Scott and Green, Jim and DeNardis, Laura and Schier, James and Israel, Dave J. and Flentge, Felix and Torgerson, Leigh and Burleigh, Scott and Blanchet, Marc and Birrane, Ed and Scott, Keith and Garcia, Oscar and Suzuki, Kiyohisa and Feldmann, Marius and Chappell, Laura and Spicer, Ginny and Danielson, Henry and Tabunshchyk, Helen},
+  title       = {{Report: Solar System Internet Architecture and Governance}},
+  institution = {Interplanetary Chapter, Internet Society},
+  year        = {2023},
+  month       = sep
+}
+
+@inproceedings{velazco-smallsats,
+  author    = {Velazco, Jose},
+  title     = {An Inter Planetary Network Enabled by SmallSats},
+  booktitle = {2020 IEEE Aerospace Conference},
+  pages     = {1--10},
+  year      = {2020},
+  doi       = {10.1109/AERO47225.2020.9172696}
+}
+
+
+
+
+
+
+
+@misc{rfc4838,
+    series =    {Request for Comments},
+    number =    4838,
+    howpublished =  {RFC 4838},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC4838},
+    url =       {https://www.rfc-editor.org/info/rfc4838},
+    author =    {Leigh Torgerson and Scott C. Burleigh and Howard Weiss and Adrian J. Hooke and Kevin Fall and Dr. Vinton G. Cerf and Keith Scott and Robert C. Durst},
+    title =     {{Delay-Tolerant Networking Architecture}},
+    pagetotal = 35,
+    year =      2007,
+    month =     apr,
+    abstract =  {This document describes an architecture for delay-tolerant and disruption-tolerant networks, and is an evolution of the architecture originally designed for the Interplanetary Internet, a communication system envisioned to provide Internet-like services across interplanetary distances in support of deep space exploration. This document describes an architecture that addresses a variety of problems with internetworks having operational and performance characteristics that make conventional (Internet-like) networking approaches either unworkable or impractical. We define a message- oriented overlay that exists above the transport (or other) layers of the networks it interconnects. The document presents a motivation for the architecture, an architectural overview, review of state management required for its operation, and a discussion of application design issues. This document represents the consensus of the IRTF DTN research group and has been widely reviewed by that group. This memo provides information for the Internet community.},
+}
+
+@misc{rfc9171,
+    series =    {Request for Comments},
+    number =    9171,
+    howpublished =  {RFC 9171},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC9171},
+    url =       {https://www.rfc-editor.org/info/rfc9171},
+    author =    {Scott Burleigh and Kevin Fall and Edward J. Birrane},
+    title =     {{Bundle Protocol Version 7}},
+    pagetotal = 53,
+    year =      2022,
+    month =     jan,
+    abstract =  {This document presents a specification for the Bundle Protocol, adapted from the experimental Bundle Protocol specification developed by the Delay-Tolerant Networking Research Group of the Internet Research Task Force and documented in RFC 5050.},
+}
+
+@INPROCEEDINGS{ion,
+  author={Burleigh, Scott},
+  booktitle={2007 4th IEEE Consumer Communications and Networking Conference}, 
+  title={Interplanetary Overlay Network: An Implementation of the DTN Bundle Protocol}, 
+  year={2007},
+  volume={},
+  number={},
+  pages={222-226},
+  keywords={Disruption tolerant networking;Protocols;Space vehicles;Memory management;Protection;Space missions;Propulsion;Laboratories;Workstations;Orbital robotics},
+  doi={10.1109/CCNC.2007.51}}
+
+
+@misc{ionsoftware,
+  author       = {{NASA Jet Propulsion Laboratory}},
+  title        = {{Interplanetary Overlay Network (ION-DTN)}},
+  howpublished = {\url{https://sourceforge.net/projects/ion-dtn/}},
+  note         = {Version 4.1.4. Accessed 2026-07-07}
+}
+
+@misc{rfc5321,
+    series =    {Request for Comments},
+    number =    5321,
+    howpublished =  {RFC 5321},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC5321},
+    url =       {https://www.rfc-editor.org/info/rfc5321},
+    author =    {Dr. John C. Klensin},
+    title =     {{Simple Mail Transfer Protocol}},
+    pagetotal = 95,
+    year =      2008,
+    month =     oct,
+    abstract =  {This document is a specification of the basic protocol for Internet electronic mail transport. It consolidates, updates, and clarifies several previous documents, making all or parts of most of them obsolete. It covers the SMTP extension mechanisms and best practices for the contemporary Internet, but does not provide details about particular extensions. Although SMTP was designed as a mail transport and delivery protocol, this specification also contains information that is important to its use as a "mail submission" protocol for "split-UA" (User Agent) mail reading systems and mobile environments. {[}STANDARDS-TRACK{]}},
+}
+
+@misc{rfc9051,
+    series =    {Request for Comments},
+    number =    9051,
+    howpublished =  {RFC 9051},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC9051},
+    url =       {https://www.rfc-editor.org/info/rfc9051},
+    author =    {Alexey Melnikov and Barry Leiba},
+    title =     {{Internet Message Access Protocol (IMAP) - Version 4rev2}},
+    pagetotal = 163,
+    year =      2021,
+    month =     aug,
+    abstract =  {The Internet Message Access Protocol Version 4rev2 (IMAP4rev2) allows a client to access and manipulate electronic mail messages on a server. IMAP4rev2 permits manipulation of mailboxes (remote message folders) in a way that is functionally equivalent to local folders. IMAP4rev2 also provides the capability for an offline client to resynchronize with the server. IMAP4rev2 includes operations for creating, deleting, and renaming mailboxes; checking for new messages; removing messages permanently; setting and clearing flags; parsing per RFCs 5322, 2045, and 2231; searching; and selective fetching of message attributes, texts, and portions thereof. Messages in IMAP4rev2 are accessed by the use of numbers. These numbers are either message sequence numbers or unique identifiers. IMAP4rev2 does not specify a means of posting mail; this function is handled by a mail submission protocol such as the one specified in RFC 6409.},
+}
+
+@misc{rfc5598,
+    series =    {Request for Comments},
+    number =    5598,
+    howpublished =  {RFC 5598},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC5598},
+    url =       {https://www.rfc-editor.org/info/rfc5598},
+    author =    {Dave Crocker},
+    title =     {{Internet Mail Architecture}},
+    pagetotal = 54,
+    year =      2009,
+    month =     jul,
+    abstract =  {Over its thirty-five-year history, Internet Mail has changed significantly in scale and complexity, as it has become a global infrastructure service. These changes have been evolutionary, rather than revolutionary, reflecting a strong desire to preserve both its installed base and its usefulness. To collaborate productively on this large and complex system, all participants need to work from a common view of it and use a common language to describe its components and the interactions among them. But the many differences in perspective currently make it difficult to know exactly what another participant means. To serve as the necessary common frame of reference, this document describes the enhanced Internet Mail architecture, reflecting the current service. This memo provides information for the Internet community.},
+}
+
+@techreport{johnson-dtn-interplanetary-smtp-01,
+    number =    {draft-johnson-dtn-interplanetary-smtp-01},
+    type =      {Internet-Draft},
+    institution =   {Internet Engineering Task Force},
+    publisher = {Internet Engineering Task Force},
+    note =      {Work in Progress},
+    url =       {https://datatracker.ietf.org/doc/draft-johnson-dtn-interplanetary-smtp/01/},
+    author =    {Scott M. Johnson},
+    title =     {{A method for delivery of SMTP messages over Bundle Protocol networks.}},
+    pagetotal = 7,
+    year =      2025,
+    month =     mar,
+    day =       18,
+    abstract =  {Delay and disruption tolerant networks are a foundational component of Interplanetary Internet communications. This document will treat several methods and modes of operation of Mail Transfer Agents in concert with Bundle Protocol Agents which allow SMTP interoperability between discrete IP networks bridged by DTNs, via Application Layer Gateways.},
+}
+
+@techreport{blanchet-dtn-email-over-bp-06,
+    number =    {draft-blanchet-dtn-email-over-bp-06},
+    type =      {Internet-Draft},
+    institution =   {Internet Engineering Task Force},
+    publisher = {Internet Engineering Task Force},
+    note =      {Work in Progress},
+    url =       {https://datatracker.ietf.org/doc/draft-blanchet-dtn-email-over-bp/06/},
+    author =    {Marc Blanchet},
+    title =     {{Encapsulation of Email over Delay-Tolerant Networks(DTN) using the Bundle Protocol}},
+    pagetotal = 7,
+    year =      2025,
+    month =     sep,
+    day =       28,
+    abstract =  {This document describes the encapsulation of emails using RFC2442 format in the payload of bundles of the Bundle Protocol for the use case of Delay-Tolerant Networks(DTN) such as in space communications.},
+}
+
+@misc{bpmail,
+  author       = {Batac, Lance and Contreras, Brian and Flores Aquino, Adrian and Li, Jiahao and Liwag, Sophia and Luu, Nathan and Martin, Nicholas and Ortega Guerrero, Antonio and Pena Reyes, Anderson Godo and Torrez, Ryan and Zou, Jilei},
+  title        = {{BPMail: Utilities for Transferring Email over Bundle Protocol}},
+  howpublished = {\url{https://github.com/250MHz/bpmail}},
+  year         = 2025,
+  note         = {Accessed 2026-07-07}
+}
+
+@misc{spamhaus,
+  author       = {{The Spamhaus Project}},
+  title        = {{DNSBL Usage and Blocklist Documentation}},
+  howpublished = {\url{https://www.spamhaus.org/blocklists/}},
+  note         = {Accessed 2026-07-07}
+}
+
+@misc{sauridnsbl,
+  author       = {{Apache SpamAssassin Project}},
+  title        = {{Mail::SpamAssassin::Plugin::URIDNSBL --- Look Up URLs Against DNS Blocklists}},
+  howpublished = {\url{https://spamassassin.apache.org/full/3.4.x/doc/Mail_SpamAssassin_Plugin_URIDNSBL.html}},
+  note         = {Accessed 2026-07-07}
+}
+
+@misc{saconf,
+  author       = {{Apache SpamAssassin Project}},
+  title        = {{Mail::SpamAssassin::Conf --- SpamAssassin Configuration File}},
+  howpublished = {\url{https://spamassassin.apache.org/full/3.4.x/doc/Mail_SpamAssassin_Conf.html}},
+  note         = {Accessed 2026-07-07}
+}
+
+@misc{rfc7208,
+    series =    {Request for Comments},
+    number =    7208,
+    howpublished =  {RFC 7208},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC7208},
+    url =       {https://www.rfc-editor.org/info/rfc7208},
+    author =    {Scott Kitterman},
+    title =     {{Sender Policy Framework (SPF) for Authorizing Use of Domains in Email, Version 1}},
+    pagetotal = 64,
+    year =      2014,
+    month =     apr,
+    abstract =  {Email on the Internet can be forged in a number of ways. In particular, existing protocols place no restriction on what a sending host can use as the "MAIL FROM" of a message or the domain given on the SMTP HELO/EHLO commands. This document describes version 1 of the Sender Policy Framework (SPF) protocol, whereby ADministrative Management Domains (ADMDs) can explicitly authorize the hosts that are allowed to use their domain names, and a receiving host can check such authorization. This document obsoletes RFC 4408.},
+}
+
+
+@misc{rfc6376,
+    series =    {Request for Comments},
+    number =    6376,
+    howpublished =  {RFC 6376},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC6376},
+    url =       {https://www.rfc-editor.org/info/rfc6376},
+    author =    {Murray Kucherawy and Dave Crocker and Tony Hansen},
+    title =     {{DomainKeys Identified Mail (DKIM) Signatures}},
+    pagetotal = 76,
+    year =      2011,
+    month =     sep,
+    abstract =  {DomainKeys Identified Mail (DKIM) permits a person, role, or organization that owns the signing domain to claim some responsibility for a message by associating the domain with the message. This can be an author's organization, an operational relay, or one of their agents. DKIM separates the question of the identity of the Signer of the message from the purported author of the message. Assertion of responsibility is validated through a cryptographic signature and by querying the Signer's domain directly to retrieve the appropriate public key. Message transit from author to recipient is through relays that typically make no substantive change to the message content and thus preserve the DKIM signature. This memo obsoletes RFC 4871 and RFC 5672. {[}STANDARDS-TRACK{]}},
+}
+
+@misc{rfc7489,
+    series =    {Request for Comments},
+    number =    7489,
+    howpublished =  {RFC 7489},
+    publisher = {RFC Editor},
+    doi =       {10.17487/RFC7489},
+    url =       {https://www.rfc-editor.org/info/rfc7489},
+    author =    {Murray Kucherawy and Elizabeth Zwicky},
+    title =     {{Domain-based Message Authentication, Reporting, and Conformance (DMARC)}},
+    pagetotal = 73,
+    year =      2015,
+    month =     mar,
+    abstract =  {Domain-based Message Authentication, Reporting, and Conformance (DMARC) is a scalable mechanism by which a mail-originating organization can express domain-level policies and preferences for message validation, disposition, and reporting, that a mail-receiving organization can use to improve mail handling. Originators of Internet Mail need to be able to associate reliable and authenticated domain identifiers with messages, communicate policies about messages that use those identifiers, and report about mail using those identifiers. These abilities have several benefits: Receivers can provide feedback to Domain Owners about the use of their domains; this feedback can provide valuable insight about the management of internal operations and the presence of external domain name abuse. DMARC does not produce or encourage elevated delivery privilege of authenticated email. DMARC is a mechanism for policy distribution that enables increasingly strict handling of messages that fail authentication checks, ranging from no action, through altered delivery, up to message rejection.},
+}
+
+@misc{razor,
+  author       = {{Vipul's Razor / Cloudmark}},
+  title        = {{Vipul's Razor: Distributed, Collaborative Spam Detection and Filtering Network}},
+  howpublished = {\url{https://razor.sourceforge.net/}},
+  note         = {Accessed 2026-07-07}
+}
+
+@misc{dcc,
+  author       = {Vernon Schryver},
+  title        = {{Distributed Checksum Clearinghouses (DCC)}},
+  howpublished = {\url{https://www.dcc-servers.net/dcc/}},
+  note         = {Accessed 2026-07-07}
+}
+
+@techreport{irtf-dtnrg-sec-overview-06,
+    number =    {draft-irtf-dtnrg-sec-overview-06},
+    type =      {Internet-Draft},
+    institution =   {Internet Engineering Task Force},
+    publisher = {Internet Engineering Task Force},
+    note =      {Work in Progress},
+    url =       {https://datatracker.ietf.org/doc/draft-irtf-dtnrg-sec-overview/06/},
+    author =    {Stephen Farrell and Susan Symington and Howard Weiss and Peter Lovell},
+    title =     {{Delay-Tolerant Networking Security Overview}},
+    pagetotal = 29,
+    year =      2009,
+    month =     mar,
+    day =       8,
+    abstract =  {This document provides an overview of the security requirements and mechanisms considered for delay tolerant networking security. It discusses the options for protecting such networks and describes reasons why specific security mechanisms were (or were not) chosen for the relevant protocols. The entire document is informative, given its purpose is mainly to document design decisions.},
+}
+

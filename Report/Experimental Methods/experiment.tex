@@ -6,18 +6,18 @@ This chapter describes the testbed used to evaluate anti-spam tools under the on
 \section{System Architecture}
 \label{sec:arch}
 
-The testbed has two networks joined by a relay. Earth uses the 192.168.100.0/24
-subnet and Moon uses the 192.168.200.0/24 subnet. The nodes are:
+The testbed has two networks joined by a relay. Each node is a separate virtual
+machine running Ubuntu 22.04 LTS. Earth uses the 192.168.100.0/24 subnet and Moon
+uses the 192.168.200.0/24 subnet. The nodes are:
 
 \begin{itemize}
   \item \textbf{Mail1 (Earth).} The Earth mail server. Runs Postfix, Dovecot, and
-  the four anti-spam tools. User account \texttt{alice}. Address 192.168.100.10.
+  the four anti-spam tools. Address 192.168.100.10.
   ION node 1.
   \item \textbf{Space (Relay).} The transit node between the two networks. Runs an
   ION node and carries the delay and packet-capture configuration. Earth-side
   interface 192.168.100.1, Moon-side interface 192.168.200.1. ION node 2.
-  \item \textbf{Mail2 (Moon).} The Moon mail server. Runs Postfix and Dovecot.
-  User account \texttt{bob}. Address 192.168.200.11. ION node 3.
+  \item \textbf{Mail2 (Moon).} The Moon mail server. Runs Postfix and Dovecot. Address 192.168.200.11. ION node 3.
   \item \textbf{Client1 (Earth).} User terminal on the Earth network. Runs
   Thunderbird and connects to Mail1 over IMAP (port 143) and SMTP submission
   (port 587, STARTTLS).
@@ -43,11 +43,11 @@ Figure~\ref{fig:topology}.
   cl/.style={draw, rounded corners, align=center, minimum width=3.2cm, minimum height=1cm},
   >={Stealth[]}
 ]
-\node[box] (mail1) {\textbf{Mail1 -- Earth}\\Mail Server: Postfix, Dovecot\\Username: alice\\IP: 192.168.100.10\\ION node: 1};
+\node[box] (mail1) {\textbf{Mail1 -- Earth}\\Mail Server: Postfix, Dovecot\\IP: 192.168.100.10\\ION node: 1};
 \node[cl, below=1.2cm of mail1] (client1) {\textbf{Client1 -- Earth}\\Thunderbird};
 \node[box, right=2.6cm of mail1] (relay) {\textbf{Space -- Relay}\\Delay + capture\\IP: 192.168.100.1 / 192.168.200.1\\ION node: 2};
 
-\node[box, right=2.6cm of relay] (mail2) {\textbf{Mail2 -- Moon}\\Mail Server: Postfix, Dovecot\\Username: bob\\IP: 192.168.200.11\\ION node: 3};
+\node[box, right=2.6cm of relay] (mail2) {\textbf{Mail2 -- Moon}\\Mail Server: Postfix, Dovecot\\IP: 192.168.200.11\\ION node: 3};
 \node[cl, below=1.2cm of mail2] (client2) {\textbf{Client2 -- Moon}\\Thunderbird};
 \draw[<->, thick] (client1) -- node[right, font=\footnotesize]{IMAP / SMTP} (mail1);
 \draw[<->, thick] (mail1) -- (relay);
@@ -82,7 +82,7 @@ The path of a message is shown in Figure~\ref{fig:dataflow}.
 \node[flowstep, below=of s7] (s8) {User reads it in Thunderbird on Client2 over IMAP};
 \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6,s6/s7,s7/s8} \draw[->] (\a) -- (\b);
 \end{tikzpicture}
-\caption{Message flow from Earth to Moon.}
+\caption{End-to-end path of an email from Earth to Moon across the DTN link.}
 \label{fig:dataflow}
 \end{figure}
 
