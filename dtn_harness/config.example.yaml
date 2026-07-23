@@ -1,0 +1,212 @@
+# =============================================================================
+# DTN Anti-Spam Run Harness  --  SINGLE CONFIG FILE
+# =============================================================================
+# Everything the harness needs lives here: VMs, credentials, and every command
+# it runs on the testbed. Edit this file, then run:  python3 run.py
+#
+# Fields marked  TODO(verify)  are testbed-specific and MUST be checked against
+# YOUR setup before the first real run. The defaults come from the project's
+# results write-ups (results/*.tex) and the bpmail man pages, but interface
+# names, paths and ION commands differ per machine.
+#
+# NOTE ON SUDO: the harness runs several commands with `sudo` (netem, tcpdump,
+# systemctl, unbound-control). The VM users below must have passwordless sudo
+# (NOPASSWD) for those, OR you run the harness as a user that does. See README.
+# =============================================================================
+
+# Which tool to run when you launch `python3 run.py` with no --tool flag.
+active_tool: rspamd            # rspamd | spamassassin | razor
+
+# Optional label folded into the results directory name. Leave "" to auto-date.
+experiment_tag: ""
+
+# -----------------------------------------------------------------------------
+# Host (your Mac) settings
+# -----------------------------------------------------------------------------
+host:
+  utmctl: /Applications/UTM.app/Contents/MacOS/utmctl
+  results_dir: ~/Desktop/DTN_runs      # where results are saved on the Mac
+  poll_interval_s: 30                  # how often to poll agents / print progress
+  boot_ssh_timeout_s: 300              # max wait for a VM to accept SSH after boot
+  drain_timeout_s: 900                 # after sender is DONE, wait this long for
+                                       # the last bundles to arrive and be scanned
+  run_timeout_s: 32400                 # 9h hard ceiling for a single run
+  min_free_gb: 20                      # abort preflight if results disk below this
+  use_caffeinate: true                 # keep the Mac awake for the whole session
+
+# -----------------------------------------------------------------------------
+# SSH
+# -----------------------------------------------------------------------------
+ssh:
+  connect_timeout_s: 30
+  keepalive_s: 30
+
+# -----------------------------------------------------------------------------
+# The three VMs.
+#   proxy: name of the node to tunnel through (null = reach directly).
+#   mail1/mail2 are only reachable via 'space', so they set  proxy: space.
+# -----------------------------------------------------------------------------
+nodes:
+  space:
+    utm_name: Space              # exact name shown by `utmctl list`
+    host: 192.168.64.8
+    user: test
+    password: "CHANGEME"
+    proxy: null
+    boot_order: 1
+    role: relay
+    delay_if: enp0s2             # TODO(verify) interface netem attaches to
+    ifb_if: ifb0                 # TODO(verify) ifb device for ingress shaping
+
+  mail1:
+    utm_name: Mail1
+    host: 192.168.100.10
+    user: john
+    password: "CHANGEME"
+    proxy: space
+    boot_order: 2
+    role: sender
+    corpus_dir: /home/john/corpus/richard   # TODO(verify) where the .eml corpus lives
+    corpus_glob: "email_*.eml"              # TODO(verify) filename pattern
+
+  mail2:
+    utm_name: Mail2
+    host: 192.168.200.11
+    user: joe
+    password: "CHANGEME"
+    proxy: space
+    boot_order: 3
+    role: receiver
+    maildir: /home/joe/Maildir/new          # TODO(verify) where delivered mail lands
+
+# -----------------------------------------------------------------------------
+# Network / delay
+# -----------------------------------------------------------------------------
+network:
+  one_way_delay_ms: 1300
+  rtt_delayed_window_ms: [2400, 2900]   # RTT gate for delayed runs (abort if outside)
+  rtt_nodelay_window_ms: [0, 150]       # RTT gate for the no-delay baseline
+  rtt_probe_from: mail2                 # ping is issued from here...
+  rtt_probe_to: 192.168.100.10          # ...to here (Moon -> Earth)
+
+# -----------------------------------------------------------------------------
+# Corpus
+# -----------------------------------------------------------------------------
+corpus:
+  size: 681
+  exclude:
+    - email_00444.eml           # exceeds the DTPC aggregation limit (see results)
+
+# -----------------------------------------------------------------------------
+# DTN send command (runs on mail1, per email, message piped on stdin as $FILE).
+# From bpmailsend(1):  bpmailsend -t <topic> <profile_id> <dest_eid>
+#   topic 26, profile_id 1 (see loopback.rc), dest is the service-129 endpoint.
+# -----------------------------------------------------------------------------
+dtn:
+  send_cmd: 'bpmailsend -t 26 1 ipn:3.129 < "$FILE"'   # TODO(verify) profile_id / dest_eid
+
+# -----------------------------------------------------------------------------
+# Testbed commands. {delay_if} {ifb_if} {delay_ms} are substituted by the host.
+# VERIFY every one of these against your machines.
+# -----------------------------------------------------------------------------
+commands:
+  # --- link delay, applied on 'space' -------------------------------------
+  delay_apply: |
+    sudo tc qdisc add dev {delay_if} root netem delay {delay_ms}ms
+    sudo modprobe ifb
+    sudo ip link set dev {ifb_if} up
+    sudo tc qdisc add dev {delay_if} handle ffff: ingress
+    sudo tc filter add dev {delay_if} parent ffff: protocol ip u32 match u32 0 0 \
+         action mirred egress redirect dev {ifb_if}
+    sudo tc qdisc add dev {ifb_if} root netem delay {delay_ms}ms
+  delay_clear: |
+    sudo tc qdisc del dev {delay_if} root 2>/dev/null || true
+    sudo tc qdisc del dev {delay_if} ingress 2>/dev/null || true
+    sudo tc qdisc del dev {ifb_if} root 2>/dev/null || true
+  delay_show: "tc qdisc show dev {delay_if}; tc qdisc show dev {ifb_if}"
+
+  # --- ION / DTN --  TODO(verify) exact commands for YOUR ION 4.1.4 nodes ---
+  # These run per node. Leave ion_restart_enabled false to skip ION restarts
+  # entirely (e.g. if ION is already up and you manage it by hand).
+  ion_restart_enabled: false
+  ion_stop: "ionstop || true"
+  ion_start: "ionstart -I ~/node.rc"    # TODO(verify) each node's .rc path
+  ion_probe: "bplist 2>/dev/null | head -1"   # TODO(verify) reachability probe
+
+  # --- resolver on mail2 ---------------------------------------------------
+  unbound_restart: "sudo systemctl restart unbound"
+  unbound_isactive: "systemctl is-active unbound"
+  unbound_dump_infra: "sudo unbound-control dump_infra"
+  unbound_stats: "sudo unbound-control stats_noreset"
+  dig_probe: "dig @127.0.0.1 example.com +time=5 +tries=1"
+
+  # --- packet capture (excludes mgmt SSH so bandwidth tables stay clean) ---
+  tcpdump: "sudo tcpdump -i any -s 0 -w {out} -C 100 -W 30 'not tcp port 22'"
+
+# =============================================================================
+# TOOLS. Each defines how to check version, scan one message, reset state, and
+# apply the per-run profile. $FILE is the message path (scan runs on mail2).
+# runs: run1 = no delay, run2 = delay/default, run3 = delay/reduced-timeout.
+# =============================================================================
+tools:
+
+  # ---------------------------------------------------------------------------
+  rspamd:
+    version_cmd: "rspamadm --version 2>&1 | head -1"
+    scan_cmd: 'rspamc --ip 1.2.3.4 --mime < "$FILE"'   # --ip makes it treat mail as external
+    reset_cmd: "sudo systemctl restart rspamd"          # cold state each run
+    parser: rspamd
+    profiles:
+      default: |
+        sudo rm -f /etc/rspamd/local.d/options_override.inc
+        sudo systemctl restart rspamd
+      reduced_timeout: |
+        echo 'task_timeout = 1.5s;' | sudo tee /etc/rspamd/local.d/options_override.inc
+        sudo systemctl restart rspamd
+    runs:
+      run1: { delay: false, profile: default,         pacing_s: 10 }
+      run2: { delay: true,  profile: default,         pacing_s: 30 }
+      run3: { delay: true,  profile: reduced_timeout, pacing_s: 15 }
+
+  # ---------------------------------------------------------------------------
+  spamassassin:
+    version_cmd: "spamassassin --version 2>&1 | head -1"
+    scan_cmd: 'spamassassin < "$FILE"'                  # standalone binary, reads local.cf fresh
+    reset_cmd: "true"
+    parser: spamassassin
+    # local.cf path -- TODO(verify) (Ubuntu: /etc/spamassassin/local.cf)
+    profiles:
+      default: |
+        sudo sed -i '/^rbl_timeout /d;/^spf_timeout /d' /etc/spamassassin/local.cf
+      reduced_timeout: |
+        sudo sed -i '/^rbl_timeout /d;/^spf_timeout /d' /etc/spamassassin/local.cf
+        echo 'rbl_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
+        echo 'spf_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
+    runs:
+      run1: { delay: false, profile: default,         pacing_s: 10 }
+      run2: { delay: true,  profile: default,         pacing_s: 30 }
+      run3: { delay: true,  profile: reduced_timeout, pacing_s: 15 }
+
+  # ---------------------------------------------------------------------------
+  razor:
+    version_cmd: "razor-check -V 2>&1 | head -1"
+    scan_cmd: 'razor-check < "$FILE"'                   # exit 0=spam, 1=ham, 2=network error
+    reset_cmd: "razor-admin -discover >/dev/null 2>&1 || true"   # refresh server list
+    parser: razor
+    # Razor has NO config-file timeout. run3 requires editing the Perl source.
+    # Path -- TODO(verify): find it with
+    #   perl -MRazor2::Client::Core -e 'print $INC{"Razor2/Client/Core.pm"}'
+    core_pm: /usr/share/perl5/Razor2/Client/Core.pm     # TODO(verify)
+    profiles:
+      default: |
+        # Restore upstream Timeout => 20 if a patched .orig backup exists.
+        if [ -f "{core_pm}.orig" ]; then sudo cp "{core_pm}.orig" "{core_pm}"; fi
+      reduced_timeout: |
+        # Patch the two hardcoded connect timeouts 20 -> 2 (below the 2.6s RTT).
+        # See README "Razor reduced-timeout" for why this is a source patch.
+        sudo cp -n "{core_pm}" "{core_pm}.orig"
+        sudo sed -i 's/Timeout  *=>  *20/Timeout => 2/g' "{core_pm}"
+    runs:
+      run1: { delay: false, profile: default,         pacing_s: 5 }
+      run2: { delay: true,  profile: default,         pacing_s: 30 }
+      run3: { delay: true,  profile: reduced_timeout, pacing_s: 15 }
