@@ -350,13 +350,24 @@ def parse_rspamd(text, rc):
     return verdict, score, thr, rules
 
 def parse_spamassassin(text, rc):
+    """Parse the X-Spam-Status header, which folds across continuation lines."""
     verdict, score, thr, rules = "", "", "", []
-    m = re.search(r"X-Spam-Status:\s*(Yes|No),\s*score=([-\d.]+)\s+required=([-\d.]+)\s+tests=([^\n]*)",
-                  text, re.I | re.S)
-    if m:
-        verdict = "YES" if m.group(1).lower() == "yes" else "NO"
-        score, thr = m.group(2), m.group(3)
-        rules = [r.strip() for r in re.sub(r"\s+", "", m.group(4)).split(",") if r.strip() and r != "none"]
+    m = re.search(r"^X-Spam-Status:\s*(.*(?:\n[ \t]+.*)*)", text, re.M)
+    if not m:
+        return verdict, score, thr, rules
+    hdr = re.sub(r"\n[ \t]+", "", m.group(1))     # RFC-unfold: join continuation lines
+    mv = re.match(r"\s*(Yes|No)", hdr, re.I)
+    if mv:
+        verdict = "YES" if mv.group(1).lower() == "yes" else "NO"
+    ms = re.search(r"score=([-\d.]+)", hdr)
+    if ms:
+        score = ms.group(1)
+    mr = re.search(r"required=([-\d.]+)", hdr)
+    if mr:
+        thr = mr.group(1)
+    mt = re.search(r"tests=([A-Za-z0-9_,]+)", hdr)  # ends at the space before autolearn=
+    if mt:
+        rules = [t for t in mt.group(1).split(",") if t and t != "none"]
     return verdict, score, thr, rules
 
 def parse_razor(text, rc):

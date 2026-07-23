@@ -189,7 +189,7 @@ tools:
 
   # ---------------------------------------------------------------------------
   razor:
-    version_cmd: "razor-check -V 2>&1 | head -1"
+    version_cmd: "perl -MRazor2::Client::Version -e 'print $Razor2::Client::Version::VERSION' 2>/dev/null"
     scan_cmd: 'razor-check < "$FILE"'                   # exit 0=spam, 1=ham, 2=network error
     reset_cmd: "razor-admin -discover >/dev/null 2>&1 || true"   # refresh server list
     parser: razor
