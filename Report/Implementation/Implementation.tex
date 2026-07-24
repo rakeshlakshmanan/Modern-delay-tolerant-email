@@ -1,2 +1,513 @@
+% Preamble additions needed for this chapter:
+% \usepackage{listings}
+% \lstset{basicstyle=\ttfamily\footnotesize, breaklines=true,
+%         frame=single, columns=flexible, keepspaces=true,
+%         showstringspaces=false, xleftmargin=0pt}
+
 \chapter{Implementation}
-Implementation content
+
+This chapter describes how the testbed was built and how the experiments are run on
+it. It covers the DTN and mail layers, the delay mechanism, the resolver, the setup
+of each anti-spam tool, and the harness that executes a full set of runs without
+supervision.
+
+\section{Basis and Scope of This Work}
+
+The DTN transport layer of the testbed follows the approach established in earlier
+work on delay-tolerant email~\cite{pan2025}, which built and validated an ION and
+BPMail pipeline for carrying mail over the Bundle Protocol. The same components are
+used here, rebuilt on virtual machines rather than containers for the reasons given
+in the previous chapter, and are described only in the detail needed to make the
+results reproducible.
+
+Everything above that layer is new: the delay mechanism on the relay, the external
+resolver, the installation and configuration of the three anti-spam tools, the
+measurement method, and the automation that runs the experiments and collects the
+results.
+
+\section{Environment and Dependencies}
+
+The testbed runs as five virtual machines on a single Apple Silicon MacBook Air
+under UTM. All five run Ubuntu 22.04 LTS (ARM64). Three are servers, mail1, space
+and mail2; two are clients, one on each network. The servers carry the mail, DTN and
+anti-spam software. The clients run Thunderbird and are used only to confirm that
+the mail path works end to end; they take no part in the measurements.
+
+Three libraries are newer than the versions in the Ubuntu 22.04 repositories and are
+compiled from source on each server before ION and BPMail are built: mbedtls 2.28.8,
+gmime 3.2.7 and c-ares 1.34.4. Each is built and installed in turn, followed by
+\texttt{ldconfig} so that the new shared libraries are found ahead of the system
+ones.
+
+\section{DTN Layer}
+
+ION-DTN 4.1.4 is built from source on all three servers:
+
+\begin{lstlisting}
+./configure --disable-crypto CFLAGS="-Dlinux"
+make
+sudo make install
+sudo ldconfig
+\end{lstlisting}
+
+The \texttt{-Dlinux} flag is required because ION's \texttt{platform.h} selects the
+system headers that define \texttt{MAXPATHLEN} behind an \texttt{\#ifdef linux}
+check. Crypto is disabled because the Bundle Protocol Security extensions are not
+used here.
+
+Each node is configured from the \texttt{bench-udp} demo template supplied with ION.
+The node numbers are 1 for mail1, 2 for space and 3 for mail2. Bundles are carried
+over the UDP convergence layer, with each node listening on its own port: 1113 on
+mail1, 2113 on space and 3113 on mail2. The bundle protocol configuration for mail1
+is:
+
+\begin{lstlisting}
+a scheme ipn 'ipnfw' 'ipnadminep'
+a endpoint ipn:1.0 x
+a endpoint ipn:1.1 x
+a endpoint ipn:1.128 x
+a endpoint ipn:1.129 x
+a protocol udp 1400 100
+a induct  udp 192.168.100.10:1113 udpcli
+a outduct udp 192.168.100.1:2113  udpclo
+\end{lstlisting}
+
+Space is the only node with two inducts and two outducts, and is the only route
+between the two networks. Routing uses Contact Graph Routing, so routes are computed
+from the contact plan rather than configured statically. The contact plan is
+identical on all three nodes and declares reachability in both directions between
+each adjacent pair:
+
+\begin{lstlisting}
+m horizon +0
+a range   +0 +86400  1 2  1
+a range   +0 +86400  2 1  1
+a range   +0 +86400  2 3  1
+a range   +0 +86400  3 2  1
+a contact +0 +86400  1 2  100000000
+a contact +0 +86400  2 1  100000000
+a contact +0 +86400  2 3  100000000
+a contact +0 +86400  3 2  100000000
+\end{lstlisting}
+
+The contact windows are set to 24 hours. Shorter windows expire during a run and
+bundles stop being forwarded, so the window has to cover a full pass of three runs
+with margin. Each node is started with an \texttt{ionstart} script that loads the
+node configuration, the contact plan, the security database and the bundle protocol
+configuration in that order, with short pauses between them.
+
+\section{Mail Layer}
+
+BPMail 0.1.0 provides the gateway between the mail system and ION. It is installed
+on mail1 and mail2 only; space forwards bundles and does not handle mail.
+
+\subsection{Build}
+
+BPMail is built with Meson. One change to the build configuration is required. The
+first build failed with an error reporting that no value was defined for
+\texttt{MAXPATHLEN}. The cause is an interaction between two settings. ION's
+\texttt{platform.h} includes the system headers that define \texttt{MAXPATHLEN} only
+when the \texttt{linux} platform macro is set, guarded by \texttt{\#ifdef linux}.
+BPMail's \texttt{meson.build} specified \texttt{c\_std=c17}, and strict ISO C17
+disables non-standard platform macros such as \texttt{linux}, so the guard never
+passed and the definition was never picked up, even when \texttt{-Dlinux} was passed
+on the command line. Changing the standard to GNU C17 keeps those platform macros
+while remaining C17-compliant:
+
+\begin{lstlisting}
+sed -i "s/c_std=c17/c_std=gnu17/" ~/bpmail/meson.build
+\end{lstlisting}
+
+The platform flag is supplied through a native file, and the build then completes:
+
+\begin{lstlisting}
+printf '[built-in options]\nc_args = [\x27-Dlinux\x27]\n' > linux-native.txt
+meson setup build --native-file linux-native.txt
+ninja -C build
+sudo ninja -C build install
+\end{lstlisting}
+
+\subsection{DTPC configuration}
+
+BPMail transfers mail over DTPC rather than raw bundles, so the two mail nodes need
+DTPC endpoints and a profile. Service 128 is used for sending and 129 for receiving,
+and the endpoints are added to each node's bundle protocol configuration as shown
+above. The DTPC profile is the same on both nodes:
+
+\begin{lstlisting}
+1
+w 1
+a profile 1 5 1000 10 600 0.1 dtn:none
+s
+\end{lstlisting}
+
+The profile sets a maximum of five retransmissions, an aggregation size limit of
+1000 bytes, an aggregation time limit of 10 seconds and a bundle lifetime of 600
+seconds. The \texttt{dtpcadmin} step is appended to the \texttt{ionstart} script on
+both mail nodes so that DTPC comes up with the rest of ION.
+
+A DTPC topic can only be opened once per node, for sending or receiving but not
+both, so each direction uses its own topic. The experiments send from mail1 to
+mail2, and use topic 26 for that direction. The destination endpoint is the
+receiving service on node 3, \texttt{ipn:3.129}; sending to the service-128 endpoint
+does not reach the receiver.
+
+\subsection{Postfix and Dovecot}
+
+Postfix is configured on both mail nodes with a transport map that routes mail for
+the remote domain to a pipe transport, which hands the message to BPMail. BPMail
+needs access to ION's shared memory, which depends on the working directory, so the
+pipe calls a small wrapper that changes to the ION node directory first:
+
+\begin{lstlisting}
+bpmail   unix  -  n  n  -  1  pipe
+  flags=F user=<user> argv=/home/<user>/bpmailsend_wrapper.sh 1 ipn:3.129
+\end{lstlisting}
+
+A background daemon runs \texttt{bpmailrecv} in a loop on each node and pipes what it
+receives into \texttt{sendmail}, which delivers it to the local mailbox. Dovecot
+serves those mailboxes over IMAP, in mbox format.
+
+This path is what the Thunderbird clients use, and it is how the testbed was
+verified as a working mail system. It is not the path used for measurement. The
+experiments call \texttt{bpmailsend} and \texttt{bpmailrecv} directly, for the
+reasons given in Section~\ref{sec:harness-agents}.
+
+\section{Delay Simulation}
+
+The link delay is applied on space, using \texttt{tc} with the \texttt{netem}
+queueing discipline, attached to the Moon-facing interface. It therefore acts on all
+traffic crossing the boundary between the two networks.
+
+\texttt{tc} can only shape traffic leaving an interface. The outbound direction is
+straightforward: a \texttt{netem} qdisc is attached to the root of the Moon-facing
+interface. The inbound direction has no equivalent, because there is no egress queue
+to attach a qdisc to. The usual way around this is an Intermediate Functional Block
+(ifb) device, a virtual interface whose own egress path can be shaped normally.
+Traffic arriving on the Moon-facing interface is matched by a filter and redirected
+to the ifb device with a \texttt{mirred} action, and a second \texttt{netem} qdisc on
+the ifb device applies the same delay. The full sequence is:
+
+\begin{lstlisting}
+sudo modprobe ifb
+sudo ip link add ifb0 type ifb
+sudo ip link set ifb0 up
+sudo tc qdisc add dev enp0s2 root netem delay 1300ms
+sudo tc qdisc add dev enp0s2 handle ffff: ingress
+sudo tc filter add dev enp0s2 parent ffff: protocol ip u32 match u32 0 0 \
+     action mirred egress redirect dev ifb0
+sudo tc qdisc add dev ifb0 root netem delay 1300ms
+\end{lstlisting}
+
+Clearing the delay removes both qdiscs, the ingress filter and the ifb device.
+
+The one-way delay is a parameter. The experiments use 1300\,ms in each direction,
+giving a round-trip time of about 2.6\,s. Because the delay sits at the boundary of
+the Moon network, everything mail2 exchanges with anything outside it pays that
+cost: the bundles it receives from mail1, and the DNS queries the scanner makes
+while examining a message.
+
+\section{DNS Resolver}
+
+The scanners run on mail2 and need working DNS. The queries are served by a local
+\texttt{unbound} instance on mail2, which forwards to a private recursive resolver
+running on an Azure virtual machine on port 5353. The reasons for using a private
+resolver are given in the previous chapter.
+
+Two changes to the default \texttt{unbound} configuration were needed.
+
+The first was a startup failure. With DNSSEC validation enabled and all queries
+forwarded, \texttt{unbound} logged repeated failures to prime the trust anchor and
+refused to resolve anything. Forwarding and validation conflict in this
+configuration. Because the upstream resolver performs validation, the validator
+module can be removed on mail2, leaving only the iterator:
+
+\begin{lstlisting}
+module-config: "iterator"
+\end{lstlisting}
+
+The second concerns two timers that interact with the link delay:
+
+\begin{lstlisting}
+discard-timeout: 9000
+infra-cache-min-rtt: 4000
+\end{lstlisting}
+
+Both defaults are shorter than the round-trip time of the delayed link. The reason
+these values are needed, and what happens with the defaults in place, is a result of
+the experiments and is presented in Chapter~5.
+
+\section{Anti-Spam Tools}
+
+Three tools are installed on mail2, the node that receives and scans. Each is
+invoked once per message, on the message file, and each is run under two
+configurations: a default one, and one with its timeout reduced below the round-trip
+time of the link.
+
+\subsection{SpamAssassin}
+
+SpamAssassin is invoked through its standalone binary rather than through
+\texttt{spamc}:
+
+\begin{lstlisting}
+spamassassin < "$FILE"
+\end{lstlisting}
+
+The client and daemon pair was tried first and had to be abandoned. When
+\texttt{spamc} cannot reach \texttt{spamd} it fails open, passing the message through
+unchanged, so every message came back with no \texttt{X-Spam-Status} header and no
+indication that anything had gone wrong. The standalone binary scans without a
+daemon, and re-reads \texttt{local.cf} on every invocation, which means a
+configuration change takes effect on the next message with no restart.
+
+The two configurations differ only in whether the timeouts are set. The default
+profile removes any timeout lines from \texttt{local.cf}, leaving SpamAssassin's own
+defaults of 15\,s for \texttt{rbl\_timeout} and 5\,s for \texttt{spf\_timeout}. The
+reduced profile sets both to 1.5\,s, below the 2.6\,s round-trip time:
+
+\begin{lstlisting}
+sudo sed -i '/^rbl_timeout /d;/^spf_timeout /d' /etc/spamassassin/local.cf
+echo 'rbl_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
+echo 'spf_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
+\end{lstlisting}
+
+\subsection{Rspamd}
+
+Rspamd runs as a daemon and is scanned through its client:
+
+\begin{lstlisting}
+rspamc --ip 1.2.3.4 --mime < "$FILE"
+\end{lstlisting}
+
+The \texttt{--ip} option supplies a client address so that the message is treated as
+having arrived from outside. Without it, mail presented locally is treated as
+internal and the network checks that this study is concerned with are skipped.
+
+Rspamd caches state in the running daemon, so it is restarted before each run to
+start from a cold cache. The reduced-timeout profile writes a single override file
+and restarts:
+
+\begin{lstlisting}
+echo 'task_timeout = 1.5s;' | sudo tee /etc/rspamd/local.d/options_override.inc
+sudo systemctl restart rspamd
+\end{lstlisting}
+
+The default profile removes that file and restarts.
+
+\subsection{Vipul's Razor}
+
+Razor is invoked with \texttt{razor-check}, which reports its verdict through the
+exit code: 0 if the message is catalogued as spam, 1 if it is not, and 2 on a network
+error. The third case matters here, because it separates a decision from a failure to
+reach the server:
+
+\begin{lstlisting}
+razor-check < "$FILE"
+\end{lstlisting}
+
+Razor's server list is refreshed with \texttt{razor-admin -discover} before each run.
+
+Razor differs from the other two in one respect that affects the experiment
+directly: it has no timeout setting in \texttt{razor-agent.conf}. Its connection
+timeouts are fixed in the client source. Producing the reduced-timeout condition
+therefore requires patching the module that holds them, keeping a copy of the
+original so the default condition can be restored:
+
+\begin{lstlisting}
+sudo cp -n "$CORE_PM" "$CORE_PM.orig"
+sudo sed -i 's/Timeout  *=>  *20/Timeout => 2/g' "$CORE_PM"
+\end{lstlisting}
+
+That a source patch is the only way to change this value is itself a finding about
+the tool, and is returned to in Chapter~5.
+
+\section{Run Harness}
+\label{sec:harness}
+
+The three runs for one tool take several hours and involve three machines, so the
+experiments are automated. The harness is a Python program that runs on the Mac and
+drives the testbed over SSH. A single command performs a complete pass:
+
+\begin{lstlisting}
+python3 run.py --tool spamassassin
+\end{lstlisting}
+
+Every parameter it uses is held in one configuration file, so the procedure is
+identical between tools and between passes, and the file itself records the exact
+settings a set of results was produced under.
+
+\subsection{Structure}
+
+The harness connects to the three servers with Paramiko. Mail1 and mail2 are not
+reachable directly from the Mac, so their connections are tunnelled through space,
+which is opened first.
+
+Work on the servers is done by two shell agents, one on mail1 that sends and one on
+mail2 that receives and scans. They are written out to each node at the start of a
+run, together with an environment file holding that run's settings, and launched
+detached so that they survive the SSH session. Each agent reports through two files
+in its working directory: \texttt{STATUS}, which holds \texttt{RUNNING},
+\texttt{DONE} or \texttt{FAILED}, and \texttt{progress}, which holds a count of
+messages handled. The host polls these every thirty seconds and prints a line for
+each. The alternative, holding a live channel open to each node for the length of a
+run, is fragile over hours; sentinel files survive a dropped connection.
+
+\subsection{Preflight and boot}
+
+Before anything starts, the harness checks that \texttt{utmctl} is usable, that the
+named virtual machines exist, and that the results directory has at least 20\,GB
+free. It then starts the machines in order and waits for each to accept SSH, up to
+five minutes. It also holds \texttt{caffeinate} open for the session so the Mac does
+not sleep partway through a run.
+
+\subsection{Verification gates}
+
+A run only starts if the testbed is in a known state. Four checks are made, and any
+of them can abort the pass:
+
+\begin{itemize}
+  \item \textbf{Clocks.} Timing is compared between the sender on mail1 and the
+  receiver on mail2, so their clocks must agree. The offset from the host is measured
+  on each node; anything above one second aborts.
+  \item \textbf{Resolver.} \texttt{unbound} must be active on mail2 and must answer a
+  test query.
+  \item \textbf{ION.} ION is restarted across all three nodes, which resets the
+  contact window so that it covers the whole pass.
+  \item \textbf{Tool.} The tool's version command must return something, which
+  confirms it is installed; the version string is recorded with the results.
+\end{itemize}
+
+\subsection{Sequence of a run}
+\label{sec:harness-agents}
+
+Each run follows the same sequence.
+
+The testbed is first returned to a cold state: \texttt{unbound} is restarted, which
+clears both its cache and its record of upstream server behaviour, any agent state
+from a previous run is deleted, the tool is reset, and any leftover \texttt{netem}
+configuration is removed. The resolver's infrastructure cache is dumped and saved, so
+that its state before the run is on record.
+
+The tool profile for the run is then applied, and the delay if the run calls for it.
+The round-trip time is then measured by pinging mail1 from mail2, and checked against
+a window: 2400 to 2900\,ms for a delayed run, and under 150\,ms for the baseline. A
+measurement outside the window aborts the run. This is the most important gate in the
+harness. A run whose delay was not actually in place, or was applied twice, would
+produce plausible-looking numbers that mean nothing, and the failure would not be
+obvious afterwards.
+
+Packet capture is then started on space and on mail2, excluding management SSH so
+that the harness's own traffic does not appear in the bandwidth figures:
+
+\begin{lstlisting}
+sudo tcpdump -i any -s 0 -w {out} -C 100 -W 30 'not tcp port 22'
+\end{lstlisting}
+
+The receiver is launched first and the sender three seconds later, so that no message
+can arrive before the receiver is listening.
+
+The sender walks the corpus in sorted order. For each message it records the
+Message-ID and a timestamp, sends it, and records the exit code:
+
+\begin{lstlisting}
+mid=$(grep -i -m1 '^Message-ID:' "$f" | tr -d '\r\n' | cut -d' ' -f2-)
+sent=$(date -u +%s.%N)
+eval "$SEND_CMD"
+rc=$?
+echo "$seq,$bn,$mid,$sent,$rc" >> "$SENT"
+\end{lstlisting}
+
+The send command pipes the message directly to BPMail:
+
+\begin{lstlisting}
+sed "1{/^From /d}" "$FILE" | bpmailsend -t 26 1 ipn:3.129
+\end{lstlisting}
+
+The leading \texttt{From } line of the mbox-format corpus file is stripped, because
+it is not part of the message.
+
+The receiver blocks on \texttt{bpmailrecv} until a bundle arrives, writes the message
+out, scans it, and records the timing:
+
+\begin{lstlisting}
+RAW=$(timeout "$RECV_TIMEOUT" bash -c "$RECV_CMD")
+arrived=$(date -u +%s.%N)
+printf '%s' "$RAW" > "$eml"
+start=$(date -u +%s.%N)
+eval "$SCAN_CMD" > "$outf" 2>&1
+rc=$?
+end=$(date -u +%s.%N)
+\end{lstlisting}
+
+The scan output is saved in full for every message, not just the parsed verdict, so
+that the parsing can be revised later without repeating a run.
+
+Sending and receiving through BPMail directly, rather than through Postfix, gives a
+clean boundary for the scan time. The clock starts when the message arrives and stops
+when the tool exits, so the recorded time is the time the tool spent on that message.
+Invoking the tool through Postfix would include its queueing in every measurement,
+and at a round-trip time of 2.6\,s the two could not be separated.
+
+Messages are paced rather than sent back to back. The interval differs by run and is
+set in the configuration.
+
+\subsection{Completion and collection}
+
+When the sender reports \texttt{DONE} the harness enters a drain phase, because
+messages are still in flight and will keep arriving for at least one one-way delay
+afterwards. It waits for the receiver's count to reach the number sent, up to fifteen
+minutes, then writes a \texttt{STOP} file that the receiver checks between bundles so
+that it exits cleanly rather than being killed mid-scan.
+
+Captures are stopped, and the resolver's state is recorded again. Two health figures
+are taken from it: the highest retransmit timeout in the infrastructure cache, and
+the number of log entries reporting answers discarded for arriving too late. A run
+whose highest retransmit timeout has reached 120{,}000\,ms is marked
+\texttt{SUSPECT} in its manifest, because that is the ceiling and indicates the
+resolver stopped working properly during the run. This is checked automatically so
+that a compromised run is flagged at the time rather than discovered later.
+
+All artifacts are then pulled back to the Mac. The sent and received records are
+reconciled by Message-ID to identify any messages that did not arrive, and the
+receiver's timing records are joined with the parsed scan output into a single
+per-message file. Each tool has its own parser, because the three report their
+verdicts differently: SpamAssassin in an \texttt{X-Spam-Status} header that folds
+across lines, Rspamd in \texttt{X-Spam-*} headers added to the message, and Razor in
+its exit code alone.
+
+Each run finally writes a manifest recording the tool and version, the profile, the
+measured round-trip time and the gate it was checked against, the timings, the
+message counts, the resolver health figures and the resulting status. The manifest is
+what makes a set of results interpretable months later.
+
+\section{Running an Experiment}
+
+A pass consists of three runs against the same corpus of 681 messages:
+
+\begin{itemize}
+  \item \textbf{Run 1}, no delay, default tool configuration. The baseline.
+  \item \textbf{Run 2}, delay applied, default tool configuration.
+  \item \textbf{Run 3}, delay applied, tool timeout reduced below the round-trip
+  time.
+\end{itemize}
+
+Runs 2 and 3 are executed in the same pass, one after the other, so that the two
+delayed conditions are separated by as little time as possible. External blocklist
+state changes over hours, and comparing two runs made far apart measures that change
+as much as it measures the effect of the configuration. The reasoning behind this is
+developed with the results in Chapter~5.
+
+A completed pass leaves, for each run, the sender's record, the receiver's timing
+record, every scan output, packet captures from space and mail2, the resolver state
+before and after, the joined per-message file, and the manifest. A summary across the
+three runs is written at the end of the pass.
+
+\section{Summary}
+
+The testbed is a working DTN mail system with a controllable link delay, a resolver
+that reaches real blocklists, and three anti-spam tools each configurable into a
+default and a reduced-timeout condition. The experiments are driven by a
+configuration-file-based harness that verifies the testbed before each run, refuses
+to proceed if the delay is not what it should be, collects every artifact, and flags
+runs whose resolver state indicates the results cannot be trusted. The next chapter
+presents what those runs measured.

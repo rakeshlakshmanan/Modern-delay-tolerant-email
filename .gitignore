@@ -84,3 +84,4 @@ dtn_harness/config.yaml
 dtn_harness/**/session.log
 DTN_runs/
 dtn_harness/__pycache__/
+dtn_harness/IMPLEMENTATION.md

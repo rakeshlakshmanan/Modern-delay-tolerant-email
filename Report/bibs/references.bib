@@ -262,3 +262,170 @@
     abstract =  {This document provides an overview of the security requirements and mechanisms considered for delay tolerant networking security. It discusses the options for protecting such networks and describes reasons why specific security mechanisms were (or were not) chosen for the relevant protocols. The entire document is informative, given its purpose is mainly to document design decisions.},
 }
 
+
+
+
+
+% ---- Tool (missing from your set) ----
+@misc{rspamd,
+  author       = {Vsevolod Stakhov},
+  title        = {{Rspamd: Fast, Free and Open-Source Spam Filtering System}},
+  howpublished = {\url{https://rspamd.com/}},
+  note         = {Accessed 2026-07-24}
+}
+
+% ---- DTN email deployments (2.1.1) ----
+@article{kiosknet,
+author = {Guo, S. and Falaki, M. H. and Oliver, E. A. and Ur Rahman, S. and Seth, A. and Zaharia, M. A. and Keshav, S.},
+title = {Very low-cost internet access using KioskNet},
+year = {2007},
+issue_date = {October 2007},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {37},
+number = {5},
+issn = {0146-4833},
+url = {https://doi.org/10.1145/1290168.1290181},
+doi = {10.1145/1290168.1290181},
+abstract = {Rural Internet kiosks in developing regions can cost-effectively provide communication and e-governance services to the poorest sections of society. A variety of technical and non-technical issues have caused most kiosk deployments to be economically unsustainable [1]. KioskNet addresses the key technical problems underlying kiosk failure by using robust 'mechanical backhaul' for connectivity [2], and by using low-cost and reliable kiosk-controllers to support services delivered from one or more recycled PCs. KioskNet also addresses related issues such as security, user management, and log collection. In this paper, we describe the KioskNet system, outlining its hardware, software, and security architecture. We describe a pilot deployment, and how we used lessons from this deployment to re-design our initial proto-type.},
+journal = {SIGCOMM Comput. Commun. Rev.},
+month = oct,
+pages = {95–100},
+numpages = {6},
+keywords = {system design, rural communication, mechanical backhaul, low cost, delay tolerant networks}
+}
+
+@ARTICLE{daknet,
+  author={Pentland, A. and Fletcher, R. and Hasson, A.},
+  journal={Computer}, 
+  title={DakNet: rethinking connectivity in developing nations}, 
+  year={2004},
+  volume={37},
+  number={1},
+  pages={78-83},
+  keywords={Costs;Cities and towns;Internet telephony;Copper;Computer networks;Broadband communication;Joining processes;Kernel;Local government;Ad hoc networks},
+  doi={10.1109/MC.2004.1260729}}
+
+
+@inproceedings{motopost,
+author = {Naidu, Shrikant and Chintada, Suresh and Sen, Moushumi and Raghavan, Seshadri},
+year = {2008},
+month = {09},
+pages = {65-72},
+title = {Challenges in deploying a delay tolerant network},
+doi = {10.1145/1409985.1409998}
+}
+
+@article{jain-dtn-routing,
+author = {Jain, Sushant and Fall, Kevin and Patra, Rabin},
+title = {Routing in a delay tolerant network},
+year = {2004},
+issue_date = {October 2004},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {34},
+number = {4},
+issn = {0146-4833},
+url = {https://doi.org/10.1145/1030194.1015484},
+doi = {10.1145/1030194.1015484},
+abstract = {We formulate the delay-tolerant networking routing problem, where messages are to be moved end-to-end across a connectivity graph that is time-varying but whose dynamics may be known in advance. The problem has the added constraints of finite buffers at each node and the general property that no contemporaneous end-to-end path may ever exist. This situation limits the applicability of traditional routing approaches that tend to treat outages as failures and seek to find an existing end-to-end path. We propose a framework for evaluating routing algorithms in such environments. We then develop several algorithms and use simulations to compare their performance with respect to the amount of knowledge they require about network topology. We find that, as expected, the algorithms using the least knowledge tend to perform poorly. We also find that with limited additional knowledge, far less than complete global knowledge, efficient algorithms can be constructed for routing in such environments. To the best of our knowledge this is the first such investigation of routing issues in DTNs.},
+journal = {SIGCOMM Comput. Commun. Rev.},
+month = aug,
+pages = {145–158},
+numpages = {14},
+keywords = {delay tolerant network, routing}
+}
+
+% ---- Latency of network tests (2.2 -- key citation) ----
+@misc{sa-netlatency,
+  author       = {Paul Shupak},
+  title        = {{Network Tests Latency}},
+  howpublished = {\url{https://cwiki.apache.org/confluence/spaces/SPAMASSASSIN/pages/119544790/NetworkTestsLatency}},
+  year         = {2006},
+  note         = {Message to the SpamAssassin users mailing list, 14 January 2006; archived on the Apache SpamAssassin wiki. Accessed 2026-07-24}
+}
+
+@misc{spamhaus-qname,
+  author       = {{The Spamhaus Project}},
+  title        = {{QNAME Minimization and Spamhaus DNSBLs --- an Explanation}},
+  howpublished = {\url{https://www.spamhaus.org/resource-hub/dnsbl/qname-minimization-and-spamhaus-dnsbls/}},
+  note         = {Accessed 2026-07-24}
+}
+
+% ---- Digest technique behind Razor (2.2) ----
+@inproceedings{damiani-digest,
+author = {Damiani, Ernesto and Vimercati, Sabrina and Paraboschi, Stefano and Samarati, Pierangela},
+year = {2004},
+month = {01},
+pages = {559-564},
+title = {An Open Digest-based Technique for Spam Detection},
+volume = {2004},
+journal = {ISCA PDCS}
+}
+
+
+% ---- Anti-spam field survey (2.1.2) ----
+
+@article{dada-mlspam,
+title = {Machine learning for email spam filtering: review, approaches and open research problems},
+journal = {Heliyon},
+volume = {5},
+number = {6},
+pages = {e01802},
+year = {2019},
+issn = {2405-8440},
+doi = {https://doi.org/10.1016/j.heliyon.2019.e01802},
+url = {https://www.sciencedirect.com/science/article/pii/S2405844018353404},
+author = {Emmanuel Gbenga Dada and Joseph Stephen Bassi and Haruna Chiroma and Shafi'i Muhammad Abdulhamid and Adebayo Olusola Adetunmbi and Opeyemi Emmanuel Ajibuwa},
+keywords = {Computer science, Computer security, Computer privacy, Analysis of algorithms, Machine learning, Spam filtering, Deep learning, Neural networks, Support vector machines, Naïve Bayes},
+abstract = {The upsurge in the volume of unwanted emails called spam has created an intense need for the development of more dependable and robust antispam filters. Machine learning methods of recent are being used to successfully detect and filter spam emails. We present a systematic review of some of the popular machine learning based email spam filtering approaches. Our review covers survey of the important concepts, attempts, efficiency, and the research trend in spam filtering. The preliminary discussion in the study background examines the applications of machine learning techniques to the email spam filtering process of the leading internet service providers (ISPs) like Gmail, Yahoo and Outlook emails spam filters. Discussion on general email spam filtering process, and the various efforts by different researchers in combating spam through the use machine learning techniques was done. Our review compares the strengths and drawbacks of existing machine learning approaches and the open research problems in spam filtering. We recommended deep leaning and deep adversarial learning as the future techniques that can effectively handle the menace of spam emails.}
+}
+
+
+% ---- Methodology parallel (2.3 -- key citation) ----
+
+@techreport{blanchet-dtn-http-over-bp-04,
+    number =    {draft-blanchet-dtn-http-over-bp-04},
+    type =      {Internet-Draft},
+    institution =   {Internet Engineering Task Force},
+    publisher = {Internet Engineering Task Force},
+    note =      {Work in Progress},
+    url =       {https://datatracker.ietf.org/doc/draft-blanchet-dtn-http-over-bp/04/},
+    author =    {Marc Blanchet},
+    title =     {{Encapsulation of HTTP over Delay-Tolerant Networks(DTN) using the Bundle Protocol}},
+    pagetotal = 6,
+    year =      2025,
+    month =     sep,
+    day =       28,
+    abstract =  {This document describes the encapsulation of HTTP requests and responses in the payload of bundles of the Bundle Protocol for the use case of Delay-Tolerant Networks(DTN) such as in space communications.},
+}
+
+% ---- Local resolution of authentication (2.1.1) ----
+@techreport{johnson-dtn-interplanetary-dns-04,
+    number =    {draft-johnson-dtn-interplanetary-dns-04},
+    type =      {Internet-Draft},
+    institution =   {Internet Engineering Task Force},
+    publisher = {Internet Engineering Task Force},
+    note =      {Work in Progress},
+    url =       {https://datatracker.ietf.org/doc/draft-johnson-dtn-interplanetary-dns/04/},
+    author =    {Scott M. Johnson},
+    title =     {{An Interplanetary DNS Model}},
+    pagetotal = 8,
+    year =      2025,
+    month =     mar,
+    day =       20,
+    abstract =  {As human activity continues to spread beyond the Earth, so must the communications systems which support that activity continue to expand in scope. One such case, Internet naming, presents particular challenges when considering a multi-planet civilization. Proper operation of terrestrial DNS services and clients require constant, reasonably low latency connectivity to operate properly. These conditions are distinctly not present when considering interplanetary links; high latency and frequent disruption due to space weather events and general link availability prevail. To overcome these challenges in space networking, a delay and distruption tolerant (DTN) suite of protocols has been developed based on a store and forward mechanism, Bundle Protocol(BP). This DTN network, which optimizes to ensure bundle delivery, does not allow for end to end encapsulation of IP packets beyond terrestrial boundaries, as the latency still creates issues completing network transactions, even in the unlikely event of continuous link availability.},
+}
+
+% ---- Filter placement (2.2) ----
+@article{pour-relocating,
+author = {Pour, Alireza},
+year = {2012},
+month = {03},
+pages = {53-62},
+title = {Minimizing the Time of Spam Mail ‎Detection by Relocating ‎Filtering System to the Sender ‎Mail Server},
+volume = {4},
+journal = {International Journal of Network Security & Its Applications},
+doi = {10.5121/ijnsa.2012.4204}
+}
+
