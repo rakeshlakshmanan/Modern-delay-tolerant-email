@@ -1,3 +1,389 @@
 \chapter{Results and Discussion}
-Results
 
+\section{SpamAssassin}
+
+SpamAssassin was run three times over the 681-email corpus: a no-delay
+baseline, Run~2 (delay, default timeouts), and Run~3 (delay, reduced timeouts).
+Each message was scanned once by the standalone binary and timed from arrival to
+exit.
+
+\begin{table}[h]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Metric & Baseline & Run 2 & Run 3 \\
+\midrule
+Flagged YES           & 383 (56.2\%) & 355 (52.1\%) & 316 (46.4\%) \\
+Emails with DNSBL hit  & 416 & 400 & 251 \\
+Scan min/avg/max (s)   & 0.45/1.68/7.58 & 3.17/7.36/16.50 & 0.43/4.05/14.83 \\
+\bottomrule
+\end{tabular}
+\caption{Aggregate results across the three runs.}
+\label{tab:sa-agg}
+\end{table}
+
+\subsection{Detection}
+
+With no delay, 383 messages were flagged. Applying 1.3\,s each way then broke
+detection at the resolver: DNSBL answers returned at about 2.64\,s (one RTT). But,
+they were discarded by \texttt{unbound} before reaching the scanner with the error message \texttt{drop reply, it is older than discard-timeout}. The default value of \texttt{discard-timeout}, 1900\,ms, is lower than the RTT of 2600\,ms, thus all delayed responses were too old and discarded~\cite{archwiki_unbound}. Setting \texttt{discard-timeout} to 9000 and \texttt{infra-cache-min-rtt}
+to 4000, which were higher than the RTT, solved the problem, and a cold
+resolution took 2.694\,s while the test message regained its score.
+DNS
+
+With the resolver fixed, Run~2 nearly preserved detection (416\,$\to$\,400 DNSBL
+emails) at about four times the scan time. Run~3 cut \texttt{rbl\_timeout} and
+\texttt{spf\_timeout} to 1.5\,s, below the RTT, trading detection for speed. Two
+things follow. First, every DNSBL rule fired less than in Run~2 and none fired
+more (Table~\ref{tab:sa-rules}).
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Rule & Baseline & Run 2 & Run 3 \\
+\midrule
+RCVD\_IN\_PBL          & 151 & 149 & 73 \\
+RCVD\_IN\_SBL\_CSS     & 148 & 136 & 43 \\
+URIBL\_DBL\_SPAM       & 118 & 117 & 73 \\
+RCVD\_IN\_PSBL         & 108 & 93  & 67 \\
+RCVD\_IN\_MSPIKE\_BL   & 103 & 93  & 32 \\
+RCVD\_IN\_XBL          & 82  & 75  & 20 \\
+RCVD\_IN\_BL\_SPAMCOP\_NET & 75 & 63 & 12 \\
+\bottomrule
+\end{tabular}
+\caption{DNSBL/URIBL rule firing (selected rules); every rule falls from Run~2
+to Run~3.}
+\label{tab:sa-rules}
+\end{table}
+
+Second, the resolver failed around email~500. With the 1.5\,s timeout,
+the scanner drops each query, but the reply does reach \texttt{unbound} at around
+2.6\,s; thus, from \texttt{unbound}'s perspective, its upstream timed out, so it
+doubles the retransmit timeout on each event. After around 500 emails, the rto
+reached its ceiling of 120{,}000\,ms, on this build \texttt{unbound-checkconf}
+rejects \texttt{infra-cache-max-rtt}, so nothing lowers that ceiling, and it did not recover until the resolver was restarted. The hit rate collapses in the tail (Table~\ref{tab:sa-collapse}), so Run~3's aggregate mixes a live-DNS portion with a dead-DNS tail, and timeout-effect comparisons must restrict to the live portion.
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Corpus position & Run 2 & Run 3 \\
+\midrule
+Emails 1--500   & 260/500 (52\%) & 220/500 (44\%) \\
+Emails 501--681 & 140/181 (77\%) & 31/181 (17\%) \\
+\bottomrule
+\end{tabular}
+\caption{DNSBL-hit rate by corpus position; Run~3 collapses after
+$\approx$email 500.}
+\label{tab:sa-collapse}
+\end{table}
+
+The reason why the number of DNSBL hits in the case of Run~3 was 251 despite the timeout of 1.5\,s that was below the RTT remains unexplained. Messages that were checked for a period longer than RTT had significantly more hits than messages scanned for a period shorter than the RTT.
+
+\subsection{Scan time}
+
+Even in baseline conditions, the scan is not instantaneous, the network rules depend
+on the DNSBL replies, which can take time, and the scan concludes only when the
+last one of them arrives; with the resolver set up properly, delayed scans were still taking around 8 seconds. Since the lookups go in serial waves, dependent on the results from the previous waves, this suggests that the latency depends on the depth of the dependency chain, not the number of lookups. There are two causes of such depth – URIBL chain, which resolves the name servers of the domain into IPs and performs DNSBL lookup of those IPs (domain > NS > IP > DNSBL), and nested SPF \texttt{include:} directives, each fetched before its children are visible.
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Run & $<$1\,s & 1--3\,s & 3--6\,s & 6--10\,s & $>$10\,s \\
+\midrule
+Baseline & 438 & 101 & 104 & 38  & 0 \\
+Run 2    & 0   & 0   & 316 & 213 & 152 \\
+Run 3    & 162 & 129 & 194 & 184 & 12 \\
+\bottomrule
+\end{tabular}
+\caption{Scan-time distribution (emails per bucket).}
+\label{tab:sa-timing}
+\end{table}
+
+The distribution changes completely with delay, since no Run~2 message scan completes in less than 3\,s, since all must now do at least one round-trip time and dependency-chain messages must do many. Run 3 splits into two groups: the shorter timeout cuts many scans short, while dependency-chain messages still run long."
+
+\subsection{Flips}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+ & Run 2 $\to$ Run 3 \\
+\midrule
+Verdict unchanged           & 424 \\
+Flipped YES $\to$ NO        & 148 \\
+Flipped NO $\to$ YES        & 109 \\
+Net flagged change          & $-39$ \\
+Gained a DNSBL rule (drift) & 178 (26.1\%) \\
+\bottomrule
+\end{tabular}
+\caption{Verdict changes and blocklist drift, Run~2 to Run~3.}
+\label{tab:sa-flips}
+\end{table}
+
+Run~3 was done two days later than Run~2, so the effect for this pair is a combination of both. The shortened timeout aborts the DNS query before the answer comes back, eliminating DNSBL matches and shifting messages from YES to NO. However, 178 messages (26.1\%) \emph{acquired} the DNSBL rule between the runs, and a shortened timeout cannot do this, so this is blocklist drift over the two days. The 109 NO\,$\to$\,YES switches are thus drift, while the 148 YES\,$\to$\,NO switches are a mixture of timeout failure and drift. 
+
+\subsection{Network volume}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Component & Baseline & Run 2 & Run 3 \\
+\midrule
+DNS bytes       & 5{,}160{,}681 & 5{,}418{,}742 & 3{,}413{,}349 \\
+DNS packets     & 37{,}789 & 39{,}875 & 25{,}783 \\
+Bundle bytes    & 572{,}625 & 538{,}529 & 547{,}709 \\
+Bundle packets  & 1{,}447 & 1{,}369 & 1{,}389 \\
+DNS \% of bytes & 90.0\% & 91.0\% & 86.2\% \\
+\bottomrule
+\end{tabular}
+\caption{Traffic on the relay: DNS to the resolver vs DTN bundle traffic.}
+\label{tab:sa-bw}
+\end{table}
+
+Traffic in DNS is nine or ten times as much as the bundle bytes in the baseline and Run~2, while the number of bundle bytes is essentially the same between runs. The number of bytes for DNS traffic in Run~3 is lower since there is no longer any tail that sends out queries upstream; the bandwidth decrease is due to the collapse of the resolver tail.
+
+\section{rspamd}
+
+This section reports the three runs with rspamd. The runs follow the same corpus and DNS path used by the previous tool. rspamd was executed on the
+receiver using \texttt{rspamc --ip 1.2.3.4 --mime}; the \texttt{--ip} option ensures that the external processing is done, and the rules dependent on DNS run. Runs~1
+and~2 were executed using the default task timeout, which was 8\,s,
+while Run~3 uses 1.5\,s, below the round-trip time.
+
+\subsection{Detection}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Metric & Run 1 (baseline) & Run 2 (delay) & Run 3 (delay, 1.5\,s) \\
+\midrule
+Messages processed            & 681 & 681 & 681 \\
+Flagged as spam               & 675 (99.1\%) & 654 (96.0\%) & 569 (83.6\%) \\
+Messages with real hit        & 502 & 482 & 94 \\
+Messages with \texttt{\_FAIL} & 0 & 45 & 665 \\
+Total real hits               & 1449 & 1330 & 221 \\
+Total \texttt{\_FAIL}         & 0 & 357 & 2729 \\
+Average score                 & 18.13 & 17.20 & 9.26 \\
+Maximum score                 & 46.10 & 45.55 & 21.55 \\
+\bottomrule
+\end{tabular}
+\caption{Detection and scoring across the three runs.}
+\label{tab:rspamd-detection}
+\end{table}
+
+Baseline flags 675 of 681 messages (99.1\%); this is the detection ceiling.
+Under delay with default timeouts (Run~2) detection is nearly preserved at 654
+(96.0\%). Reducing \texttt{task\_timeout} to 1.5\,s (Run~3) drops it to 569
+(83.6\%). The cause is in the hit and \texttt{\_FAIL} rows: real hits fall
+502\,$\to$\,482\,$\to$\,94 as timed-out lookups rise 0\,$\to$\,45\,$\to$\,665.
+
+
+\subsection{Scan time}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Scan time (s) & Run 1 & Run 2 & Run 3 \\
+\midrule
+$<$1\,s   & 644 & 0   & 2 \\
+1--2\,s   & 24  & 0   & 679 \\
+2--4\,s   & 1   & 113 & 0 \\
+4--6\,s   & 6   & 428 & 0 \\
+$\geq$6\,s & 6  & 140 & 0 \\
+\bottomrule
+\end{tabular}
+\caption{Scan-time distribution across the three runs (messages per bucket).}
+\label{tab:rspamd-scan}
+\end{table}
+
+Baseline scans fast: 644 out of 681 scans in less than 1\,s. In the delay setup with
+default timeouts (Run~2) every scan is slow (median 5.67\,s), where the round trip time
+dominates since every uncached lookup incurs one RTT cost; 140 out of 681 scans
+hit the ceiling at 8\,s. In Run~3, scan time reduced to 1 to
+2\,s for 679 out of 681 scans, with none above 1.64\,s.
+
+\subsection{Flips, Run 2 to Run 3}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+ & Run 2 $\to$ Run 3 \\
+\midrule
+Verdict unchanged        & 560 \\
+Flipped YES $\to$ NO     & 103 \\
+Flipped NO $\to$ YES     & 18 \\
+Net flagged change       & $-85$ \\
+\bottomrule
+\end{tabular}
+\caption{Per-message flips between the two delayed runs, which differ only in
+\texttt{task\_timeout}.}
+\label{tab:rspamd-flips}
+\end{table}
+
+Reducing \texttt{task\_timeout} flipped 103 messages from spam to not-spam and
+lowered the score of 579 of 681. The 18 messages that gained detection run
+counter to a shorter timeout and are most likely blocklist-listing drift between
+the two runs rather than a timeout effect.
+
+\subsection{Network volume}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Metric (receiver capture) & Run 1 & Run 2 & Run 3 \\
+\midrule
+DNS queries sent          & 38{,}873 & 80{,}890 & 24{,}116 \\
+DNS responses received    & 38{,}771 & 80{,}822 & 24{,}078 \\
+Queries to upstream       & 13{,}894 & 19{,}033 & 5{,}969 \\
+Total packets             & 89\,k & 182\,k & 59\,k \\
+Total data                & 18\,MB & 32\,MB & 14\,MB \\
+\bottomrule
+\end{tabular}
+\caption{Network volume per run. Capture durations are omitted: the captures
+ran unattended, so their wall-clock length does not reflect run time.}
+\label{tab:rspamd-network}
+\end{table}
+
+The same number of sent and received queries is seen for all runs, meaning that there were no lost queries on the wire, while changes in traffic volume are due to rspamd itself, not to packet loss.
+
+Run~2 sent almost twice the number of queries than the baseline (38{,}873\,$\to$\,80{,}890), and there was a proportional increase in data size (18\,$\to$\,32\,MB). The reason is retransmission. rspamd retries sending the DNS request every time it times out waiting for the response, with the number of retransmits equal to the retransmit count, which gives a total per-request timeout of \texttt{timeout\,$\times$\,retransmits}, which is 1\,s $\cdot$ 5 by default. As the timeout per attempt is shorter than the 2.6\,s round trip time, the unanswered queries will be resent until they get their response. So, an entirely fresh lookup will be sent 3 times on average until the answer is received at 2.6\,s.
+
+
+Run~3 does the opposite: query volume falls below than the baseline level
+(80{,}890$\,\rightarrow$\,24{,}116 queries, 32$\,\rightarrow$\,14\,MB). Since the timeout is only 1.5 seconds, the task is terminated before the DNS budget expires (it is 5 seconds). Therefore, a request can be issued only twice before termination, stopping the sequence of retransmissions that inflated
+Run~2. This lower volume is the network-side view of the 2{,}729 \texttt{\_FAIL} symbols: the queries went out but were abandoned before
+their answers returned.
+
+
+\section{Vipul's Razor}
+
+This section reports the three runs with Razor. The runs follow the same corpus
+and DNS path used by the previous tools. Razor 2.84 was executed on the receiver
+using \texttt{razor-check < message.eml}. Razor exposes no network timeout through
+\texttt{razor-agent.conf}, so the connect timeout is a hardcoded constant in
+\texttt{Razor2::Client::Core}. Runs~1 and~2 used the default of 20\,s, while
+Run~3 patched it to 2\,s, below the round-trip time.
+
+\subsection{Detection}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Metric & Run 1 (baseline) & Run 2 (delay) & Run 3 (delay, patched) \\
+\midrule
+Messages processed        & 681 & 681 & 681 \\
+YES (exit 0, spam)        & 22 (3.23\%)  & 19 (2.79\%)  & 0 (0\%) \\
+NO (exit 1, not spam)     & 659 (96.77\%) & 656 (96.33\%) & 0 (0\%) \\
+FAIL (exit 2, error)      & 0 (0\%)   & 6 (0.88\%)   & 681 (100\%) \\
+\bottomrule
+\end{tabular}
+\caption{Verdict distribution across the three runs.}
+\label{tab:razor-detection}
+\end{table}
+
+
+Under delay with default timeouts (Run~2), the verdict remains essentially the same (3.23\%\,$\to$\,2.79\% flagged). Run~3 collapses the entire detection process
+as it reports exit~2 in every scan performed. In contrast to the DNSBL-based tools, Razor has only one cooperative detection method, which means that if the connection fails, it reports no verdict at all.
+
+\subsection{Scan time}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Scan time (s) & Run 1 & Run 2 & Run 3 \\
+\midrule
+\multicolumn{4}{@{}l}{\textit{distribution (messages)}}\\
+$<$1\,s      & 673 & 0   & 0 \\
+1--5\,s      & 4   & 0   & 0 \\
+5--10\,s     & 0   & 90  & 671 \\
+10--15\,s    & 0   & 465 & 10 \\
+15--30\,s    & 1   & 73  & 0 \\
+30--60\,s    & 0   & 44  & 0 \\
+$\geq$60\,s  & 0   & 9   & 0 \\
+\bottomrule
+\end{tabular}
+\caption{Scan-time distribution across the three runs.}
+\label{tab:razor-scan}
+\end{table}
+
+
+Baseline scans are completed within one second (673 of 681). With delay without timeout
+(Run~2), the median increases to 11\,s, and the distribution gets a heavy tail up
+to 122.6\,s. With the timeout (Run~3), the time of scanning becomes deterministic
+with a value close to 8\,s, which means four connection attempts of the server,
+each taking 2\,s.
+
+
+\subsection{Flips}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lc@{}}
+\toprule
+Transition (Run 1 $\to$ Run 2) & Messages \\
+\midrule
+NO $\to$ NO (unchanged)   & 652 \\
+YES $\to$ YES (unchanged) & 19 \\
+NO $\to$ FAIL             & 6 \\
+YES $\to$ NO              & 1 \\
+\bottomrule
+\end{tabular}
+\hfill
+\begin{tabular}{@{}lc@{}}
+\toprule
+Transition (Run 2 $\to$ Run 3) & Messages \\
+\midrule
+NO $\to$ FAIL   & 656 \\
+YES $\to$ FAIL  & 19 \\
+FAIL $\to$ FAIL & 6 \\
+\bottomrule
+\end{tabular}
+\caption{Per-message flips, matched on a Message-ID and Delivery-date key.
+Three Run~1 messages with short duplicate keys are excluded from the left table.}
+\label{tab:razor-flips}
+\end{table}
+
+Under delay alone the verdict is stable: 671 of 678 comparable messages keep
+their baseline verdict. The timeout run flips 675 of 681 from a valid verdict
+to FAIL.
+
+\subsection{Network volume}
+
+\begin{table}[H]\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Metric (receiver capture) & Run 1 & Run 2 & Run 3 \\
+\midrule
+Frames captured              & 12{,}814 & 25{,}997 & 57{,}937 \\
+Bytes captured               & 3.4\,MB  & 5.1\,MB  & 40.2\,MB \\
+TCP connections to :2703     & 687      & 887      & 5{,}460 \\
+Connections per message      & 1.01     & 1.30     & 8.02 \\
+DNS queries / responses      & 36 / 42  & 650 / 810 & 777 / 971 \\
+\bottomrule
+\end{tabular}
+\caption{Network volume per run.}
+\label{tab:razor-network}
+\end{table}
+
+
+DNS traffic is less than 1\% of volume in all runs: Razor's per-check DNS traffic is
+small, and its delay sensitivity is in TCP, not DNS. That is the opposite of rspamd, where DNS traffic dominated the delayed run.
+
+Connections per message increase from 1.01\,$\to$\,1.30\,$\to$\,8.02. Baseline uses
+about one server per message; with delay, some scans use additional servers due to
+failure; with the timeout, all the servers listed in the catalogue and nominations
+are used per-message because of failures of every handshake and the exhaustion of
+lists by \texttt{nextserver}. Therefore, the volume of Run~3 (57{,}937 frames,
+40.2\,MB) is the largest despite the shortest wall-time: every handshake failure
+has a kernel-level SYN retransmission, which accounts for roughly two SYNs
+per attempt across six servers in 681 messages.
