@@ -1,2 +1,89 @@
 \chapter{Conclusions and Future Work}
-Conclusions
+\section{Conclusion}
+
+This dissertation tested whether conventional anti-spam tools work over a
+delay-tolerant network. A testbed was implemented using ION-DTN, BPMail gateway, Postfix/Dovecot, local unbound DNS resolver, and \texttt{tc netem} to add delay. Three different tools – SpamAssassin, rspamd, and Vipul's Razor were deployed and evaluated against an earth-to-moon delay scenario with a non-delayed setup as the baseline. The conclusion is that the three filters mentioned above do not tolerate delay by design. They operate under assumptions that round-trips are finished within some timeout values set for normal terrestrial latencies. Once the round trip exceeds that value, the filters become less efficient or fail entirely.
+
+However, spam detection is possible with appropriate configuration of the resolver. By default, the resolver will fail silently without any indication: the filter will still check the messages and return a score but will not detect spam at all. This is the most problematic type of failure because nothing will indicate it. If the tool timeout is set below the round trip time, detection will not degrade in any way. Instead, block list detections will be replaced with timeouts and a collaborating tool will fail completely.
+
+Delay also makes scanning slow. A scan is blocked until all responses from its network appear, therefore, instead of a sub-second scan, it takes several seconds. The cost depends on the depth of dependent queries, not the number of them: a message where lookups are dependent on each other gets blocked for the sum of round trips. Filter on the point of delivery is not efficient. The mail queue gets built behind messages that wait for the link. The throughput is limited by the delay, not by the server.
+
+The result is the following - network traffic: DNS lookups of the filter dominate the
+link way more than the actual email filtering does. On a constrained deep-space link,
+the anti-spam lookup, not email, becomes a primary consumer of bandwidth. Delay does not just slow filtering down, it changes how much traffic crosses the link, and each tool reacts differently. In rspamd, a DNS timeout shorter than the round trip causes every unanswered query to be resent, so query volume rises for no benefit. In SpamAssassin, the resolver eventually collapses and stops sending queries, so traffic drops instead. In Razor, the load is not DNS at all but repeated TCP connection attempts. In every case, bandwidth is spent on lookups that mostly time out.
+
+
+These results were measured at Earth--Moon delay. Earth--Mars delay is minutes each way instead of seconds, so the round-trip is far larger than any timeout in the stack.
+At Mars distance, no default timeout is above the round-trip, so the silent-collapse and total-failure cases seen in the reduced-timeout runs become the normal outcome for all three tools. Dependency-chain scans, which took seconds at Moon distance, would take tens of minutes per message. Retransmission would push DNS traffic to its maximum on a link with little spare capacity. Synchronous, DNS-based anti-spam cannot be used at interplanetary distance without changes.
+
+These tools work over DTN only if every timeout in the stack is set above the link delay and the extra DNS traffic is accepted. Beyond Moon distance this is not enough, and the filtering has to be changed to work with store-and-forward instead of real-time lookups.
+
+\section{Limitations}
+
+This study met its objectives, but is subject to the following limitations:
+
+\begin{itemize}
+
+\item \textbf{Single fixed delay.} All the measurements are done using only one
+round-trip delay between Earth and Moon. Larger delays, as well as delay with jitter,
+packet losses, or broken links, are not tested. The claims on the distance between
+Earth and Mars are purely logical conclusions based on the mechanisms, but not measured facts.
+
+\item \textbf{Drift of blocklist and interval between runs.} Since blocklists evolve with time,
+comparison of the verdict for each message between different runs, not performed
+at the same time, involves both delay and blocklist drift. Runs~2 and~3 are
+performed two days apart, so per-message flips test is influenced by this drift.
+The per-run total numbers of flips can be considered pure measurements.
+
+\item \textbf{Delay only, not a full space link.} The delay was set up using
+\texttt{tc netem} in a one-node ION-DTN testbed. It simulates the high round-trip
+time correctly but not any other characteristic of a real deep-space link, like
+scheduled periods of communication, prolonged interruptions and error-prone
+transmissions. The findings depict the effects of the delay, not those of the 
+intermittent connection.
+
+\item \textbf{Behavior is version-dependent.} The outcomes are tied to the 
+exact versions of the programs used. For instance, it is impossible to limit the
+resolver collapse of unbound because there is no such setting as 
+\texttt{infra-cache-max-rtt} in unbound 1.13.1. It was introduced in a newer
+version. Hence, the findings apply to the specific versions of the tools.
+\end{itemize}
+
+
+\section{Future Work}
+
+The findings and limitations of this study point to the following future work:
+
+\begin{itemize}
+
+\item \textbf{Test at Mars-scale and under challenging conditions.} The facts
+about distance from Earth to Mars in this work are an inference drawn from
+the mechanisms, and not empirical findings. Testing the tools at minute-scale
+latency cycles, along with jitter, packet loss, and disruption in addition to
+latency, will determine if the tools act according to the mechanism.
+
+
+\item \textbf{Move filtering off the synchronous per-message path.} The tested
+tools do their check online, consulting the blocklist servers along the path for
+each message, and it causes the performance problems seen here. There are two ways
+to avoid this approach. In the first one, the blocklist database is moved to the
+receiver (Moon) side so that per-message check would be done locally and instantly,
+while a separate process will be doing periodic syncing of the database across
+the path asynchronously. In the second one, the check is done on the Earth side
+where blocklist servers are located with normal latency, and the result of the
+check is added to the email message. This way, only the result of the check
+crosses the long path. The first approach requires no trusted upstream but allows
+some staleness of the database; the second one uses up-to-date blocklists but
+requires a trusted checkpoint on the Earth side.
+
+
+\item \textbf{Deferred, asynchronous filtering.} A minor change would be to retain
+the live lookups, but to avoid them delaying delivery. The message is accepted
+and saved at receipt time, the DNS or catalog lookups are carried out
+asynchronously, and the result applied once the lookup completes, potentially
+minutes afterwards. The message is not delayed for the round-trip delay, and the
+result is delivered using hold and release or reclassification after delivery.
+This is in line with the store-and-forward nature of DTN, and much more
+immediately implementable than redesigning the data path.
+
+\end{itemize}

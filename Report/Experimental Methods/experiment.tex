@@ -129,14 +129,10 @@ Four tools were selected, each with a different external dependency:
   asynchronous DNS lookups.
   \item \textbf{Vipul's Razor 2.84} --- collaborative filtering through a central
   nonce server, reached over TCP on port 2703.
-  \item \textbf{DCC 2.3.169} --- collaborative filtering through checksum servers,
-  reached over UDP on port 6277.
 \end{itemize}
 
-The four cover the main ways a filter reaches the network: blocklist DNS
-(SpamAssassin, Rspamd), a TCP request to a central reputation server (Razor), and a
-UDP request to a checksum server (DCC). Testing one tool would show only one failure
-path. 
+The three cover the main ways a filter reaches the network: blocklist DNS
+(SpamAssassin, Rspamd), a TCP request to a central reputation server (Razor). Testing one tool would show only one failure path. 
 
 
 \section{DTN Design}

@@ -18,7 +18,7 @@ Emails with DNSBL hit  & 416 & 400 & 251 \\
 Scan min/avg/max (s)   & 0.45/1.68/7.58 & 3.17/7.36/16.50 & 0.43/4.05/14.83 \\
 \bottomrule
 \end{tabular}
-\caption{Aggregate results across the three runs.}
+\caption{SpamAssassin - Aggregate results across the three runs.}
 \label{tab:sa-agg}
 \end{table}
 
@@ -29,7 +29,6 @@ detection at the resolver: DNSBL answers returned at about 2.64\,s (one RTT). Bu
 they were discarded by \texttt{unbound} before reaching the scanner with the error message \texttt{drop reply, it is older than discard-timeout}. The default value of \texttt{discard-timeout}, 1900\,ms, is lower than the RTT of 2600\,ms, thus all delayed responses were too old and discarded~\cite{archwiki_unbound}. Setting \texttt{discard-timeout} to 9000 and \texttt{infra-cache-min-rtt}
 to 4000, which were higher than the RTT, solved the problem, and a cold
 resolution took 2.694\,s while the test message regained its score.
-DNS
 
 With the resolver fixed, Run~2 nearly preserved detection (416\,$\to$\,400 DNSBL
 emails) at about four times the scan time. Run~3 cut \texttt{rbl\_timeout} and
@@ -52,7 +51,7 @@ RCVD\_IN\_XBL          & 82  & 75  & 20 \\
 RCVD\_IN\_BL\_SPAMCOP\_NET & 75 & 63 & 12 \\
 \bottomrule
 \end{tabular}
-\caption{DNSBL/URIBL rule firing (selected rules); every rule falls from Run~2
+\caption{SpamAssassin - DNSBL/URIBL rule firing (selected rules); every rule falls from Run~2
 to Run~3.}
 \label{tab:sa-rules}
 \end{table}
@@ -74,7 +73,7 @@ Emails 1--500   & 260/500 (52\%) & 220/500 (44\%) \\
 Emails 501--681 & 140/181 (77\%) & 31/181 (17\%) \\
 \bottomrule
 \end{tabular}
-\caption{DNSBL-hit rate by corpus position; Run~3 collapses after
+\caption{SpamAssassin - DNSBL-hit rate by corpus position; Run~3 collapses after
 $\approx$email 500.}
 \label{tab:sa-collapse}
 \end{table}
@@ -98,11 +97,11 @@ Run 2    & 0   & 0   & 316 & 213 & 152 \\
 Run 3    & 162 & 129 & 194 & 184 & 12 \\
 \bottomrule
 \end{tabular}
-\caption{Scan-time distribution (emails per bucket).}
+\caption{SpamAssassin - Scan-time distribution (emails per bucket).}
 \label{tab:sa-timing}
 \end{table}
 
-The distribution changes completely with delay, since no Run~2 message scan completes in less than 3\,s, since all must now do at least one round-trip time and dependency-chain messages must do many. Run 3 splits into two groups: the shorter timeout cuts many scans short, while dependency-chain messages still run long."
+The distribution changes completely with delay, since no Run~2 message scan completes in less than 3\,s, since all must now do at least one round-trip time and dependency-chain messages must do many. Run 3 splits into two groups: the shorter timeout cuts many scans short, while dependency-chain messages still run long.
 
 \subsection{Flips}
 
@@ -119,7 +118,7 @@ Net flagged change          & $-39$ \\
 Gained a DNSBL rule (drift) & 178 (26.1\%) \\
 \bottomrule
 \end{tabular}
-\caption{Verdict changes and blocklist drift, Run~2 to Run~3.}
+\caption{SpamAssassin - Verdict changes and blocklist drift, Run~2 to Run~3.}
 \label{tab:sa-flips}
 \end{table}
 
@@ -140,7 +139,7 @@ Bundle packets  & 1{,}447 & 1{,}369 & 1{,}389 \\
 DNS \% of bytes & 90.0\% & 91.0\% & 86.2\% \\
 \bottomrule
 \end{tabular}
-\caption{Traffic on the relay: DNS to the resolver vs DTN bundle traffic.}
+\caption{SpamAssassin - Traffic on the relay: DNS to the resolver vs DTN bundle traffic.}
 \label{tab:sa-bw}
 \end{table}
 
@@ -171,7 +170,7 @@ Average score                 & 18.13 & 17.20 & 9.26 \\
 Maximum score                 & 46.10 & 45.55 & 21.55 \\
 \bottomrule
 \end{tabular}
-\caption{Detection and scoring across the three runs.}
+\caption{rspamd - Detection and scoring across the three runs.}
 \label{tab:rspamd-detection}
 \end{table}
 
@@ -197,7 +196,7 @@ $<$1\,s   & 644 & 0   & 2 \\
 $\geq$6\,s & 6  & 140 & 0 \\
 \bottomrule
 \end{tabular}
-\caption{Scan-time distribution across the three runs (messages per bucket).}
+\caption{rspamd - Scan-time distribution across the three runs (messages per bucket).}
 \label{tab:rspamd-scan}
 \end{table}
 
@@ -219,13 +218,13 @@ Verdict unchanged        & 560 \\
 Flipped YES $\to$ NO     & 103 \\
 Flipped NO $\to$ YES     & 18 \\
 Net flagged change       & $-85$ \\
+Messages that lost score & 579 \\
+Mean score change        & $-7.94$ \\
 \bottomrule
 \end{tabular}
-\caption{Per-message flips between the two delayed runs, which differ only in
-\texttt{task\_timeout}.}
+\caption{rspamd - Per-message flips between the two delayed runs.}
 \label{tab:rspamd-flips}
 \end{table}
-
 Reducing \texttt{task\_timeout} flipped 103 messages from spam to not-spam and
 lowered the score of 579 of 681. The 18 messages that gained detection run
 counter to a shorter timeout and are most likely blocklist-listing drift between
@@ -246,8 +245,7 @@ Total packets             & 89\,k & 182\,k & 59\,k \\
 Total data                & 18\,MB & 32\,MB & 14\,MB \\
 \bottomrule
 \end{tabular}
-\caption{Network volume per run. Capture durations are omitted: the captures
-ran unattended, so their wall-clock length does not reflect run time.}
+\caption{rspamd - Network volume per run.}
 \label{tab:rspamd-network}
 \end{table}
 
@@ -285,7 +283,7 @@ NO (exit 1, not spam)     & 659 (96.77\%) & 656 (96.33\%) & 0 (0\%) \\
 FAIL (exit 2, error)      & 0 (0\%)   & 6 (0.88\%)   & 681 (100\%) \\
 \bottomrule
 \end{tabular}
-\caption{Verdict distribution across the three runs.}
+\caption{Razor - Verdict distribution across the three runs.}
 \label{tab:razor-detection}
 \end{table}
 
@@ -311,7 +309,7 @@ $<$1\,s      & 673 & 0   & 0 \\
 $\geq$60\,s  & 0   & 9   & 0 \\
 \bottomrule
 \end{tabular}
-\caption{Scan-time distribution across the three runs.}
+\caption{Razor - Scan-time distribution across the three runs.}
 \label{tab:razor-scan}
 \end{table}
 
@@ -347,8 +345,7 @@ YES $\to$ FAIL  & 19 \\
 FAIL $\to$ FAIL & 6 \\
 \bottomrule
 \end{tabular}
-\caption{Per-message flips, matched on a Message-ID and Delivery-date key.
-Three Run~1 messages with short duplicate keys are excluded from the left table.}
+\caption{Razor - Per-message flips, matched on a Message-ID and Delivery-date key.}
 \label{tab:razor-flips}
 \end{table}
 
@@ -371,7 +368,7 @@ Connections per message      & 1.01     & 1.30     & 8.02 \\
 DNS queries / responses      & 36 / 42  & 650 / 810 & 777 / 971 \\
 \bottomrule
 \end{tabular}
-\caption{Network volume per run.}
+\caption{Razor - Network volume per run.}
 \label{tab:razor-network}
 \end{table}
 
@@ -387,3 +384,80 @@ lists by \texttt{nextserver}. Therefore, the volume of Run~3 (57{,}937 frames,
 40.2\,MB) is the largest despite the shortest wall-time: every handshake failure
 has a kernel-level SYN retransmission, which accounts for roughly two SYNs
 per attempt across six servers in 681 messages.
+
+
+\section{Summary}
+
+\begin{table}[H]\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}p{1.5cm} p{2.1cm} p{4.0cm} p{4.6cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Run} & \textbf{Observed} & \textbf{Reason} \\
+\midrule
+
+SpamAssassin & Run 2 (delay, default) &
+Detection nearly preserved; scan time about four times higher &
+Tuned resolver timers above the RTT let delayed DNSBL answers arrive; scans block waiting one RTT per lookup wave \\
+\cmidrule(l){2-4}
+& Run 3 (delay, reduced) &
+Per-email detection falls; resolver collapses near email 500 &
+Timeout below RTT abandons queries early; late answers drive unbound's rto to its ceiling, which does not self-recover \\
+\midrule
+
+rspamd & Run 2 (delay, default) &
+Detection nearly preserved; DNS traffic roughly doubles &
+Answers arrive within the 8\,s ceiling; 1\,s per-attempt DNS timeout below the RTT retransmits each uncached query \\
+\cmidrule(l){2-4}
+& Run 3 (delay, 1.5\,s) &
+Detection drops; hits replaced by \texttt{\_FAIL}; DNS volume falls &
+Task aborts before answers return, so lookups time out instead of listing; retransmit sequence is cut short \\
+\midrule
+
+Razor & Run 2 (delay, default) &
+Detection essentially unchanged; scan time rises with a long tail &
+Verdicts still returned over the link; slow servers hit the hardcoded read timeout, adding failover delay \\
+\cmidrule(l){2-4}
+& Run 3 (delay, patched) &
+Detection collapses completely; every check returns FAIL &
+2\,s connect timeout is below the 2.6\,s RTT, so every handshake aborts before its SYN-ACK returns \\
+\midrule
+
+All tools & Delay &
+Filter DNS/TCP traffic dominates the link, far above the mail &
+Network rules issue many lookups per message; the mail payload is small by comparison \\
+
+\bottomrule
+\end{tabular}
+\caption{Summary of tool behaviour under delay.}
+\label{tab:results-summary}
+\end{table}
+
+\begin{table}[H]\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}p{5.2cm} p{7.0cm}@{}}
+\toprule
+\textbf{Observed (common to all three tools)} & \textbf{Reason} \\
+\midrule
+
+Detection survives delay only when timers are set above the round-trip &
+Every tool assumes replies return inside a timeout set for terrestrial latency; once the round-trip exceeds it, answers arrive too late to be used \\
+
+A timeout below the round-trip does not degrade gracefully; detection is lost or replaced by errors &
+Below the RTT no reply can return in time, so a listing becomes a timeout, an error, or a failed handshake rather than a partial result \\
+
+Scan time rises sharply under delay &
+The scan blocks on network replies, so each message waits at least one round-trip, and dependent lookups wait several \\
+
+The filter's own lookups dominate the link, far above the mail payload &
+Network rules issue many DNS or catalogue queries per message, while the email itself is small by comparison \\
+
+Delay changes lookup volume, not just speed &
+A per-attempt timeout below the RTT retransmits unanswered queries, so traffic is spent on lookups that mostly time out \\
+
+\bottomrule
+\end{tabular}
+\caption{Behaviour common to SpamAssassin, rspamd, and Razor under delay.}
+\label{tab:results-common}
+\end{table}

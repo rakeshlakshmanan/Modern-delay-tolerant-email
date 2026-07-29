@@ -14,7 +14,7 @@ supervision.
 \section{Basis and Scope of This Work}
 
 The DTN transport layer of the testbed follows the approach established in earlier
-work on delay-tolerant email~\cite{pan2025}, which built and validated an ION and
+work on delay-tolerant email, which built and validated an ION and
 BPMail pipeline for carrying mail over the Bundle Protocol. The same components are
 used here, rebuilt on virtual machines rather than containers for the reasons given
 in the previous chapter, and are described only in the detail needed to make the
@@ -490,12 +490,6 @@ A pass consists of three runs against the same corpus of 681 messages:
   \item \textbf{Run 3}, delay applied, tool timeout reduced below the round-trip
   time.
 \end{itemize}
-
-Runs 2 and 3 are executed in the same pass, one after the other, so that the two
-delayed conditions are separated by as little time as possible. External blocklist
-state changes over hours, and comparing two runs made far apart measures that change
-as much as it measures the effect of the configuration. The reasoning behind this is
-developed with the results in Chapter~5.
 
 A completed pass leaves, for each run, the sender's record, the receiver's timing
 record, every scan output, packet captures from space and mail2, the resolver state
