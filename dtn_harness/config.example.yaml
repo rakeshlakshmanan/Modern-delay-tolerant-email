@@ -66,7 +66,7 @@ nodes:
     proxy: space
     boot_order: 2
     role: sender
-    corpus_dir: /home/john/corpus/richard   # TODO(verify) where the .eml corpus lives
+    corpus_dir: /home/test/  # TODO(verify) where the .eml corpus lives
     corpus_glob: "email_*.eml"              # TODO(verify) filename pattern
 
   mail2:
@@ -77,7 +77,7 @@ nodes:
     proxy: space
     boot_order: 3
     role: receiver
-    maildir: /home/joe/Maildir/new          # TODO(verify) where delivered mail lands
+    maildir: /home/test/Maildir/new          # TODO(verify) where delivered mail lands
 
 # -----------------------------------------------------------------------------
 # Network / delay
@@ -94,8 +94,6 @@ network:
 # -----------------------------------------------------------------------------
 corpus:
   size: 681
-  exclude:
-    - email_00444.eml           # exceeds the DTPC aggregation limit (see results)
 
 # -----------------------------------------------------------------------------
 # DTN send command (runs on mail1, per email, message piped on stdin as $FILE).
