@@ -2,8 +2,7 @@
 
 One command runs the full three-run experiment (Run 1 / Run 2 / Run 3) for one
 anti-spam tool over the Earth–Moon DTN testbed, prints live progress, and saves
-every artifact to disk. It exists so a future student can reproduce the
-SpamAssassin / rspamd / Razor evaluations without driving each run by hand.
+every artifact to disk.
 
 It automates everything that *can* be automated from the Mac. A few things are
 testbed- or tool-specific and are called out below as **manual steps** or
