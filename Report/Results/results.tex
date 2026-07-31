@@ -224,7 +224,7 @@ Mean score change        & $-7.94$ \\
 \end{tabular}
 \caption{rspamd - Per-message flips between the two delayed runs.}
 \label{tab:rspamd-flips}
-\end{table}
+\end{table} 
 Reducing \texttt{task\_timeout} flipped 103 messages from spam to not-spam and
 lowered the score of 579 of 681. The 18 messages that gained detection run
 counter to a shorter timeout and are most likely blocklist-listing drift between
@@ -433,6 +433,56 @@ Network rules issue many lookups per message; the mail payload is small by compa
 \label{tab:results-summary}
 \end{table}
 
+
+% preamble needs: \usepackage{booktabs} \usepackage{array} \usepackage{float}
+\begin{table}[H]\centering
+\footnotesize
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{@{}p{2.1cm} p{4.4cm} p{5.7cm}@{}}
+\toprule
+\textbf{Tool} & \textbf{Configuration} & \textbf{Impact under delay} \\
+\midrule
+
+SpamAssassin &
+\texttt{rbl\_timeout} --- 1.5\,s \newline (default 15\,s) &
+Below the 2.6\,s RTT, so DNSBL lookups are abandoned before their answers return and per-message detection falls \\
+\cmidrule(l){2-3}
+& \texttt{spf\_timeout} --- 1.5\,s \newline (default 5\,s) &
+Below the RTT, so SPF lookups do not resolve within the scan \\
+\midrule
+
+rspamd &
+\texttt{dns.timeout} --- 1\,s \newline (default 1\,s) &
+Sets the per-attempt DNS wait; the effective wait is \texttt{timeout}$\times$\texttt{retransmits} \\
+\cmidrule(l){2-3}
+& \texttt{dns.retransmits} --- 1 \newline (default 5) &
+Cutting the effective DNS wait below the RTT does not drop detection: a late answer arriving while the task still runs is still used \\
+\cmidrule(l){2-3}
+& \texttt{task\_timeout} --- 1.5\,s \newline (default 8\,s) &
+The whole-message ceiling, below the RTT, aborts the scan before answers return; blocklist hits become \texttt{\_FAIL} timeouts and DNS volume falls \\
+\midrule
+
+Razor &
+Connect \texttt{Timeout} --- 2\,s \newline (default 20\,s; hardcoded in \texttt{Core.pm}) &
+Below the RTT, so every catalogue-server handshake aborts before its SYN-ACK returns; detection collapses to 100\% network error \\
+\cmidrule(l){2-3}
+& \texttt{can\_read} --- 15\,s \newline (unchanged; hardcoded via \texttt{IO::Select}) &
+Governs the wait for a server's reply; a server that accepts but is slow to respond stalls the scan up to 15\,s, producing Run 2's long scan-time tail \\
+\midrule
+
+unbound \newline (resolver) &
+\texttt{discard-timeout} --- 9000\,ms (default 1900\,ms) &
+Must exceed the RTT, otherwise delayed DNSBL answers are dropped as too old and detection fails silently \\
+\cmidrule(l){2-3}
+& \texttt{infra-cache-min-rtt} --- 4000\,ms (default 50\,ms) &
+Must exceed the RTT, otherwise the resolver treats a delayed answer as a lost packet on first contact \\
+
+\bottomrule
+\end{tabular}
+\caption{Timeout settings that govern behaviour under delay, and the effect of setting them relative to the round-trip time (RTT $\approx$ 2.6\,s).}
+\label{tab:config-impact}
+\end{table}
+
 \begin{table}[H]\centering
 \footnotesize
 \renewcommand{\arraystretch}{1.3}
@@ -461,3 +511,5 @@ A per-attempt timeout below the RTT retransmits unanswered queries, so traffic i
 \caption{Behaviour common to SpamAssassin, rspamd, and Razor under delay.}
 \label{tab:results-common}
 \end{table}
+
+
