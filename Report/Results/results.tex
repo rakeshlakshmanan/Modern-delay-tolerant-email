@@ -78,7 +78,7 @@ $\approx$email 500.}
 \label{tab:sa-collapse}
 \end{table}
 
-The reason why the number of DNSBL hits in the case of Run~3 was 251 despite the timeout of 1.5\,s that was below the RTT remains unexplained. Messages that were checked for a period longer than RTT had significantly more hits than messages scanned for a period shorter than the RTT.
+The 251 DNSBL-hit emails in Run 3, despite a 1.5 s timeout below the 2.6 s RTT, are explained by the adaptive nature of rbl\_timeout. It is not a hard per-query cutoff but the starting value of a timeout that shrinks as queries complete, with a one-second grace floor granted to each still-pending query. Messages whose lookups form a serial dependency chain — the URIBL domain→NS→IP→DNSBL wave chain, or nested SPF include: directives — launch fresh pending queries at each new wave, and the grace floor keeps extending the effective deadline past the RTT, so the delayed answers arrive in time to score. The correlation confirms this: emails that scanned longer than the RTT hit a DNSBL rule 47\% of the time, against 24\% for emails that scanned faster, and 83\% of all Run 3 hits came from the longer-scanning group. Cache reuse of shared-domain listings is a secondary contributor. The result is an irony: the same serial dependency chains that make a message slow under delay are what preserve its DNSBL detection under a reduced timeout, because the extended scan time lets answers cross the RTT boundary.
 
 \subsection{Scan time}
 
@@ -254,8 +254,7 @@ The same number of sent and received queries is seen for all runs, meaning that 
 Run~2 sent almost twice the number of queries than the baseline (38{,}873\,$\to$\,80{,}890), and there was a proportional increase in data size (18\,$\to$\,32\,MB). The reason is retransmission. rspamd retries sending the DNS request every time it times out waiting for the response, with the number of retransmits equal to the retransmit count, which gives a total per-request timeout of \texttt{timeout\,$\times$\,retransmits}, which is 1\,s $\cdot$ 5 by default. As the timeout per attempt is shorter than the 2.6\,s round trip time, the unanswered queries will be resent until they get their response. So, an entirely fresh lookup will be sent 3 times on average until the answer is received at 2.6\,s.
 
 
-Run~3 does the opposite: query volume falls below than the baseline level
-(80{,}890$\,\rightarrow$\,24{,}116 queries, 32$\,\rightarrow$\,14\,MB). Since the timeout is only 1.5 seconds, the task is terminated before the DNS budget expires (it is 5 seconds). Therefore, a request can be issued only twice before termination, stopping the sequence of retransmissions that inflated
+Run~3 does the opposite: query volume falls below the baseline (80{,}890$\,\rightarrow$\,24{,}116 queries, 32$\,\rightarrow$\,14\,MB). Since the timeout is only 1.5 seconds, the task is terminated before the DNS budget expires (it is 5 seconds). Therefore, a request can be issued only twice before termination, stopping the sequence of retransmissions that inflated
 Run~2. This lower volume is the network-side view of the 2{,}729 \texttt{\_FAIL} symbols: the queries went out but were abandoned before
 their answers returned.
 
@@ -300,7 +299,7 @@ as it reports exit~2 in every scan performed. In contrast to the DNSBL-based too
 Scan time (s) & Run 1 & Run 2 & Run 3 \\
 \midrule
 \multicolumn{4}{@{}l}{\textit{distribution (messages)}}\\
-$<$1\,s      & 673 & 0   & 0 \\
+$<$1\,s      & 676 & 0   & 0 \\
 1--5\,s      & 4   & 0   & 0 \\
 5--10\,s     & 0   & 90  & 671 \\
 10--15\,s    & 0   & 465 & 10 \\
@@ -314,25 +313,23 @@ $\geq$60\,s  & 0   & 9   & 0 \\
 \end{table}
 
 
-Baseline scans are completed within one second (673 of 681). With delay without timeout
+Baseline scans are completed within one second (676 of 681). With delay without timeout
 (Run~2), the median increases to 11\,s, and the distribution gets a heavy tail up
 to 122.6\,s. With the timeout (Run~3), the time of scanning becomes deterministic
 with a value close to 8\,s, which means four connection attempts of the server,
 each taking 2\,s.
 
-
 \subsection{Flips}
-
 \begin{table}[H]\centering
 \small
 \begin{tabular}{@{}lc@{}}
 \toprule
 Transition (Run 1 $\to$ Run 2) & Messages \\
 \midrule
-NO $\to$ NO (unchanged)   & 652 \\
+NO $\to$ NO (unchanged)   & 653 \\
 YES $\to$ YES (unchanged) & 19 \\
 NO $\to$ FAIL             & 6 \\
-YES $\to$ NO              & 1 \\
+YES $\to$ NO              & 3 \\
 \bottomrule
 \end{tabular}
 \hfill
@@ -349,9 +346,8 @@ FAIL $\to$ FAIL & 6 \\
 \label{tab:razor-flips}
 \end{table}
 
-Under delay alone the verdict is stable: 671 of 678 comparable messages keep
-their baseline verdict. The timeout run flips 675 of 681 from a valid verdict
-to FAIL.
+Under delay alone the verdict is stable: 672 of 681 messages keep their baseline verdict, with 3 flipping YES→NO and 6 returning a network error. The timeout run flips 675 of 681 from a valid verdict to FAIL.
+
 
 \subsection{Network volume}
 
@@ -378,12 +374,10 @@ small, and its delay sensitivity is in TCP, not DNS. That is the opposite of rsp
 
 Connections per message increase from 1.01\,$\to$\,1.30\,$\to$\,8.02. Baseline uses
 about one server per message; with delay, some scans use additional servers due to
-failure; with the timeout, all the servers listed in the catalogue and nominations
-are used per-message because of failures of every handshake and the exhaustion of
-lists by \texttt{nextserver}. Therefore, the volume of Run~3 (57{,}937 frames,
+failure; with the timeout, every handshake fails, so nextserver walks through every server in the catalogue and nomination lists until they are exhausted, and all of them are tried on each message. Therefore, the volume of Run~3 (57{,}937 frames,
 40.2\,MB) is the largest despite the shortest wall-time: every handshake failure
 has a kernel-level SYN retransmission, which accounts for roughly two SYNs
-per attempt across six servers in 681 messages.
+per attempt across four servers in 681 messages.
 
 
 \section{Summary}

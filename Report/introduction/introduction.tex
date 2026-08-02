@@ -78,7 +78,7 @@ To answer this, the dissertation sets out to:
   software, with a link delay that can be set to a chosen value.
   \item Assemble a representative email corpus and a repeatable method to scan it
   and record per-email timing, verdicts, and network traffic.
-  \item Evaluate three tools, SpamAssassin, Rspamd and Vipul's Razor, chosen to
+  \item Evaluate three tools, SpamAssassin, rspamd and Vipul's Razor, chosen to
   cover the main ways a filter depends on the network.
   \item For each tool, compare its behaviour under delay against a no-delay baseline
   and identify the mechanisms behind the differences and any failure modes.
@@ -96,11 +96,10 @@ The dissertation makes three contributions:
 \begin{itemize}
   \item A reproducible Earth--Moon DTN email testbed for evaluating mail-layer tools
   under controlled delay.
-  \item An empirical, mechanism-level account of how four anti-spam tools behave
+  \item An empirical, mechanism-level account of how three anti-spam tools behave
   under delay, including the failure modes and their causes.
   \item A measurement method that separates sourced fact from interpretation,
-  controls for blocklist drift, and uses back-to-back runs so that delay effects can
-  be isolated.
+  controls for blocklist drift.
 \end{itemize}
 
 \section{Dissertation Overview}
@@ -112,7 +111,7 @@ how mail is carried over DTN, and the anti-spam tools and the network services t
 depend on. Chapter~3 describes the design of the testbed, including the node layout,
 the choice of software, and the delay simulation. Chapter~4 covers the
 implementation, from building the nodes to configuring the mail, DTN, and anti-spam
-software. Chapter~5 presents the evaluation: each of the four tools is measured
+software. Chapter~5 presents the evaluation: each of the three tools is measured
 under delay against a no-delay baseline, and the results are compared. Chapter~6
 concludes and sets out directions for future work.
 

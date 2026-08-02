@@ -175,7 +175,7 @@
 
 Deep-space links carry long delays and go down for long stretches, so the protocols that assume a fast, always-on connection do not work across them. Delay-Tolerant Networking (DTN) makes it possible to move email over such links, but the spam filtering that any real mail service needs has never been studied under these conditions. This matters because every filter leans on live lookups to remote servers, and those lookups now have to cross the delayed link.
 
-This work measures how three widely used anti-spam tools: SpamAssassin, rspamd, and Vipul's Razor, behave when their traffic runs over a DTN link, and explains why. A three-node Earth–Moon testbed was built from real software: Postfix and Dovecot for mail, ION-DTN and the BPMail gateway for transport, and a private DNS resolver for the blocklist queries. A one-way delay of 1.3 seconds was applied on the relay, and each tool was run over a corpus of 681 messages, once with delay and once without, while recording per-message verdicts, scan times, and packet captures.
+This work measures how three widely used anti-spam tools: SpamAssassin, rspamd, and Vipul's Razor, behave when their traffic runs over a DTN link, and explains why. A five-node Earth–Moon testbed was built from real software: Postfix and Dovecot for mail, ION-DTN and the BPMail gateway for transport, and a private DNS resolver for the blocklist queries. A delay of 1.3 seconds was applied on the relay, and each tool was run over a corpus of 681 messages under three conditions — a no-delay baseline, the delay applied with the tool's default timeouts, and the delay with the tool's own timeout reduced below the round-trip — while recording per-message verdicts, scan times, and packet captures.
 
 The tools do not cope with delay on their own. A blocklist answer that arrives one round-trip late is thrown away by the resolver unless its timers are raised above the delay, and when that is not done the filter still runs, still scores the message, and quietly lets spam through. Cutting a tool's own timeout below the round-trip does not trade a little detection for speed; it removes detection outright, and a tool that relies on a single remote service stops returning any verdict. In every case the filter's own lookups put far more traffic on the link than the mail they inspect. These results hold at Moon distance and grow worse toward Mars, where the round-trip exceeds every timeout in the stack, so filtering of this kind cannot be carried to interplanetary links without moving the checks off the live path.
 
@@ -211,7 +211,6 @@ ifb    & Intermediate Functional Block \\
 IMAP   & Internet Message Access Protocol \\
 ION    & Interplanetary Overlay Network \\
 LTS    & Long-Term Support \\
-NAT    & Network Address Translation \\
 RTO    & Retransmission Timeout \\
 RTT    & Round-Trip Time \\
 SDR    & Simple Data Recorder (ION persistent store) \\

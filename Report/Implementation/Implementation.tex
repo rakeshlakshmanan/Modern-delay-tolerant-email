@@ -211,8 +211,7 @@ while examining a message.
 
 The scanners run on mail2 and need working DNS. The queries are served by a local
 \texttt{unbound} instance on mail2, which forwards to a private recursive resolver
-running on an Azure virtual machine on port 5353. The reasons for using a private
-resolver are given in the previous chapter.
+running on an Azure virtual machine on port 5353.
 
 Two changes to the default \texttt{unbound} configuration were needed.
 
@@ -271,9 +270,9 @@ echo 'rbl_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
 echo 'spf_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
 \end{lstlisting}
 
-\subsection{Rspamd}
+\subsection{rspamd}
 
-Rspamd runs as a daemon and is scanned through its client:
+rspamd runs as a daemon and is scanned through its client:
 
 \begin{lstlisting}
 rspamc --ip 1.2.3.4 --mime < "$FILE"
@@ -283,7 +282,7 @@ The \texttt{--ip} option supplies a client address so that the message is treate
 having arrived from outside. Without it, mail presented locally is treated as
 internal and the network checks that this study is concerned with are skipped.
 
-Rspamd caches state in the running daemon, so it is restarted before each run to
+rspamd caches state in the running daemon, so it is restarted before each run to
 start from a cold cache. The reduced-timeout profile writes a single override file
 and restarts:
 
@@ -320,6 +319,15 @@ sudo sed -i 's/Timeout  *=>  *20/Timeout => 2/g' "$CORE_PM"
 
 That a source patch is the only way to change this value is itself a finding about
 the tool, and is returned to in Chapter~5.
+
+\section{Email Corpus}
+The corpus is drawn from Richard Clayton's public spam archive, a collection of real
+messages captured from live mail traffic. From it, 681 messages were used for every
+run. The same 681 messages, in the same sorted order, were scanned in all three runs
+of every tool, so that per-message comparisons across runs refer to identical inputs.
+The corpus is used to characterise tool behaviour under delay rather than to measure
+absolute detection accuracy, so what matters here is that the message set is fixed and
+realistic, not that it is balanced between spam and legitimate mail.
 
 \section{Run Harness}
 \label{sec:harness}
@@ -472,7 +480,7 @@ reconciled by Message-ID to identify any messages that did not arrive, and the
 receiver's timing records are joined with the parsed scan output into a single
 per-message file. Each tool has its own parser, because the three report their
 verdicts differently: SpamAssassin in an \texttt{X-Spam-Status} header that folds
-across lines, Rspamd in \texttt{X-Spam-*} headers added to the message, and Razor in
+across lines, rspamd in \texttt{X-Spam-*} headers added to the message, and Razor in
 its exit code alone.
 
 Each run finally writes a manifest recording the tool and version, the profile, the

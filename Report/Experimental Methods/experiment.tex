@@ -11,13 +11,13 @@ machine running Ubuntu 22.04 LTS. Earth uses the 192.168.100.0/24 subnet and Moo
 uses the 192.168.200.0/24 subnet. The nodes are:
 
 \begin{itemize}
-  \item \textbf{Mail1 (Earth).} The Earth mail server. Runs Postfix, Dovecot, and
-  the four anti-spam tools. Address 192.168.100.10.
+  \item \textbf{Mail1 (Earth).} The Earth mail server. Runs Postfix and Dovecot. Address 192.168.100.10.
   ION node 1.
   \item \textbf{Space (Relay).} The transit node between the two networks. Runs an
   ION node and carries the delay and packet-capture configuration. Earth-side
   interface 192.168.100.1, Moon-side interface 192.168.200.1. ION node 2.
-  \item \textbf{Mail2 (Moon).} The Moon mail server. Runs Postfix and Dovecot. Address 192.168.200.11. ION node 3.
+  \item \textbf{Mail2 (Moon).} The Moon mail server. Runs Postfix, Dovecot, and
+  the three anti-spam tools. Address 192.168.200.11. ION node 3.
   \item \textbf{Client1 (Earth).} User terminal on the Earth network. Runs
   Thunderbird and connects to Mail1 over IMAP (port 143) and SMTP submission
   (port 587, STARTTLS).
@@ -78,7 +78,7 @@ The path of a message is shown in Figure~\ref{fig:dataflow}.
 \node[flowstep, below=of s3] (s4) {ION encapsulates the message into a bundle};
 \node[flowstep, dashed, below=of s4] (s5) {Bundle is forwarded through Space (node 2) : one-way delay applied};
 \node[flowstep, below=of s5] (s6) {ION on Mail2 (node 3) receives the bundle and rebuilds the message (Moon)};
-\node[flowstep, below=of s6] (s7) {Postfix and Dovecot on Mail2 deliver it to bob's mailbox};
+\node[flowstep, below=of s6] (s7) {Postfix and Dovecot on Mail2 deliver it to the recipient's mailbox.};
 \node[flowstep, below=of s7] (s8) {User reads it in Thunderbird on Client2 over IMAP};
 \foreach \a/\b in {s1/s2,s2/s3,s3/s4,s4/s5,s5/s6,s6/s7,s7/s8} \draw[->] (\a) -- (\b);
 \end{tikzpicture}
@@ -96,7 +96,7 @@ needs that decide this:
 
 \begin{itemize}
    \item \textbf{VMs match the real topology.} The testbed mimics three separate machines — Earth, Space, Moon — connected by a long-delay link, and full VMs naturally model this, whereas containers all share one kernel on one host.
-  \item \textbf{Simpler delay setup} Setting up ifb to delay incoming traffic is fiddly and error-prone inside containers, but it's straightforward on a VM where each node has its own kernel and network stack.
+  \item \textbf{Simpler delay setup.} Setting up ifb to delay incoming traffic is fiddly and error-prone inside containers, but it's straightforward on a VM where each node has its own kernel and network stack.
   \item \textbf{DTN state stays isolated per node.}  Each ION node keeps its own bundle store and contact schedule, and a full VM ensures the link delay sits on the path itself rather than leaking into a node's own processing.
 \end{itemize}
 
@@ -120,19 +120,19 @@ needs that decide this:
 \section{Anti-Spam Tool Selection}
 \label{sec:tools}
 
-Four tools were selected, each with a different external dependency:
+Three tools were selected, each with a different external dependency:
 
 \begin{itemize}
   \item \textbf{SpamAssassin 3.4.6} --- content scoring that depends on DNS
   blocklist lookups.
-  \item \textbf{Rspamd 2.7} --- content scoring with a large number of
+  \item \textbf{rspamd 2.7} --- content scoring with a large number of
   asynchronous DNS lookups.
   \item \textbf{Vipul's Razor 2.84} --- collaborative filtering through a central
   nonce server, reached over TCP on port 2703.
 \end{itemize}
 
 The three cover the main ways a filter reaches the network: blocklist DNS
-(SpamAssassin, Rspamd), a TCP request to a central reputation server (Razor). Testing one tool would show only one failure path. 
+(SpamAssassin, rspamd), a TCP request to a central reputation server (Razor). Testing one tool would show only one failure path. 
 
 
 \section{DTN Design}
@@ -140,7 +140,8 @@ The three cover the main ways a filter reaches the network: blocklist DNS
 The DTN layer uses ION-DTN 4.1.4 and BPMail. The three
 servers run ION as nodes on a single \texttt{ipn} scheme: Mail1 (Earth) is node 1,
 Space (relay) is node 2, and Mail2 (Moon) is node 3. Bundles are carried over a UDP
-convergence layer on port 4556, and the relay forwards them between the two mail
+convergence layer, with each node listening on its own port: 1113 on Mail1, 2113
+on Space, and 3113 on Mail2, and the relay forwards them between the two mail
 nodes, so the path from Earth to Moon is node 1 to node 2 to node 3. The contact
 plan sets the windows during which the nodes can exchange bundles. BPMail sits above
 ION on each mail server: it takes a message from Postfix, encapsulates it into a
@@ -150,54 +151,96 @@ implementation chapter.
 
 \section{Delay Simulation Design}
 \label{sec:delay}
+Delay is applied with netem on the relay, to all traffic crossing the boundary
+between the Earth and Moon networks. A real Earth--Moon link delays both directions
+of travel: a signal takes about 1.3 seconds each way, so a round-trip takes about
+2.6 seconds. The testbed reproduces this by delaying each leg on the relay's
+Moon-facing interface.
 
-Delay is applied with netem. The key requirement is that delay is applied to one
-direction only --- to traffic coming from the remote node --- and not to the Earth
-node's own traffic.
-
-A plain netem rule on the relay's interface delays everything that crosses it,
-including the Earth node's traffic, which would change what is being measured. To
-avoid this, ingress traffic from the remote side is redirected to an Intermediate
-Functional Block (ifb) device, and the delay is applied there. The redirect happens
-before the relay's NAT rewrites the source address, so the rule can match traffic by
-its true origin. Earth-origin traffic does not pass through this path and stays at
-normal latency. This is shown in Figure~\ref{fig:ifb}.
+The complication is that \texttt{tc} can only shape traffic \emph{leaving} an
+interface, so the two legs have to be handled separately. The Earth-to-Moon leg is
+the egress direction on that interface and is delayed by a netem qdisc attached to
+the interface root. The Moon-to-Earth leg arrives as ingress, and ingress has no
+egress queue to attach a qdisc to. To delay it, incoming traffic is redirected to an
+Intermediate Functional Block (ifb) device, whose own egress path can be shaped
+normally, and the same netem delay is applied there. The two mechanisms: the root
+qdisc and the ifb device are therefore the two halves of a single symmetric
+delay, not a way to delay one direction while sparing the other. Traffic that stays
+within a single network never reaches the relay and is unaffected. This is shown in
+Figure~\ref{fig:ifb}.
 
 \begin{figure}[ht]
 \centering
-\resizebox{\textwidth}{!}{%
+\resizebox{0.95\textwidth}{!}{%
 \begin{tikzpicture}[
-  font=\small, >={Stealth[]},
+  font=\small,
   box/.style={draw, rounded corners, align=center, minimum width=2.8cm, minimum height=1.3cm}
 ]
-\node[box] (remote) {Remote\\node};
-\node[box, right=4.2cm of remote] (relay) {Relay (Space)\\ifb0: netem delay};
-\node[box, right=4.2cm of relay] (earth) {Earth\\node};
+\node[box] (earth) {Earth\\node};
+\node[box, right=4.2cm of earth] (relay) {Relay (Space)\\netem delay + ifb0};
+\node[box, right=4.2cm of relay] (moon) {Moon\\node};
 
-\draw[->, thick] ([yshift=12pt]remote.east) -- node[above, font=\footnotesize, align=center]{remote-origin traffic:\\delayed (ifb ingress, pre-NAT)} ([yshift=12pt]relay.west);
-\draw[->, thick] ([yshift=12pt]relay.east) -- ([yshift=12pt]earth.west);
-\draw[->, dashed] ([yshift=-12pt]earth.west) -- node[below, font=\footnotesize, align=center]{Earth-origin traffic:\\no delay} ([yshift=-12pt]relay.east);
-\draw[->, dashed] ([yshift=-12pt]relay.west) -- ([yshift=-12pt]remote.east);
+% Earth-to-Moon leg (top row, left to right)
+\draw[-latex, very thick] ([yshift=12pt]earth.east) -- node[above, font=\footnotesize, align=center]{Earth-to-Moon leg:\\delayed 1300\,ms (interface egress)} ([yshift=12pt]relay.west);
+\draw[-latex, very thick] ([yshift=12pt]relay.east) -- ([yshift=12pt]moon.west);
+
+% Moon-to-Earth leg (bottom row, right to left)
+\draw[-latex, very thick] ([yshift=-12pt]moon.west) -- node[below, font=\footnotesize, align=center]{Moon-to-Earth leg:\\delayed 1300\,ms (ifb ingress)} ([yshift=-12pt]relay.east);
+\draw[-latex, very thick] ([yshift=-12pt]relay.west) -- ([yshift=-12pt]earth.east);
 \end{tikzpicture}%
 }
-\caption{Asymmetric delay. Traffic originating from the remote node is delayed on
-ingress through an ifb device, before NAT rewrites the source. Earth-origin traffic
-is not delayed.}
+\caption{Symmetric delay. Each leg crossing the relay is delayed by 1300\,ms: the
+Earth-to-Moon leg on the interface's egress path, and the Moon-to-Earth leg on an
+ifb device, since ingress cannot be shaped directly. The two legs together give a
+round-trip time of about 2.6\,s. Traffic that stays within one network does not cross
+the relay and is not delayed.}
 \label{fig:ifb}
 \end{figure}
 
-Delay is the independent variable. The experiments use a representative one-way
-delay of 1.3 seconds as a deep-space operating point. The testbed allows any value
-to be set, so the same setup covers the range from short Earth--Moon delays to
-multi-minute deep-space delays.
+Delay is the independent variable. The experiments use a representative one-way delay
+of 1.3 seconds, a round-trip of about 2.6 seconds, as a deep-space operating
+point. The testbed allows any value to be set, so the same setup covers the range
+from short Earth--Moon delays to multi-minute deep-space delays.
+
+\subsection{DNS Resolver}
+
+The blocklist rules in every tool under test resolve DNSBL and URIBL names, so
+the Moon node needs a working recursive resolver. A large public resolver cannot
+serve this role: the major blocklist operators refuse or rate-limit queries that
+arrive through open public resolvers such as those run by Google or Cloudflare,
+returning an error or an empty answer rather than a listing~\cite{spamhaus}.
+Scanning through one would report no spam for reasons unrelated to delay and make
+the results meaningless.
+
+The testbed therefore uses a private recursive resolver, running on an
+off-testbed virtual machine with ordinary internet access to the live blocklist
+zones. The Moon node runs a local \texttt{unbound} instance that forwards to it.
+Three properties make this the right choice:
+
+\begin{itemize}
+  \item \textbf{Valid blocklist answers.} A dedicated resolver querying the
+  blocklist zones is what those operators expect, so listings are returned
+  normally and the only thing added to a lookup is the injected link delay.
+  \item \textbf{Control of the resolver's own timers.} A public resolver cannot
+  be reconfigured, yet the timers that decide how a resolver treats a late answer
+  turn out to determine whether detection survives delay (Chapter~5). A private
+  resolver can be tuned and its configuration recorded.
+  \item \textbf{Reproducibility.} Its cache and per-server state can be reset
+  before each run and dumped afterwards, so every run starts cold and its DNS
+  state is on record.
+\end{itemize}
+
+The recursive resolver sits off the Moon network, so every query the scanner
+makes crosses the relay and pays the same delay as the mail. This is deliberate:
+the lookups a filter depends on are exactly what the experiment measures under
+delay.
 
 
 \section{Summary}
 \label{sec:design-summary}
 
-This chapter set out a three-node testbed for measuring anti-spam tool behaviour
+This chapter set out a five-node testbed for measuring anti-spam tool behaviour
 under link delay. The design uses full virtual machines for kernel and DNS
-isolation, a private resolver to give the Earth side a working DNS path, four tools
+isolation, a private resolver to give the Moon side a working DNS path, three tools
 chosen to cover the main external dependencies, and an ifb-based scheme to apply
-delay to one direction only. The next chapter describes how this design was built
-and configured, and the chapter after it presents the results.
+delay. The next chapter describes how this design was built and configured, and the chapter after it presents the results.
