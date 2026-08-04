@@ -1,132 +1,69 @@
 \chapter{Literature Review}
 
-This chapter reviews the work that surrounds spam filtering over a DTN link. It
-covers three fields that touch the subject, a set of problems elsewhere that have
-the same shape, and the methods those fields use to evaluate their systems. It ends
-by setting out what none of them answers.
+This chapter reviews the work that surrounds spam filtering over DTN. It covers three fields that touch the subject, a set of problems elsewhere that have the same shape, and the methods those fields use to evaluate their systems. It ends by identifying the gap this dissertation addresses: the behaviour of anti-spam filtering under delay.
 
 \section{Email over DTN}
 
-Transporting emails over a delayed or intermittent network connection is not a novel thing. The previous studies are terrestrial and were developed for rural regions with no continuous connection. DakNet was using automobiles to transport emails from village to village, and to the internet gateway, thereby offering an inexpensive alternative for connectivity in contrast to a wired connection~\cite{daknet}. KioskNet further improved on this by developing a whole system including kiosk controllers, naming, routing and security framework, reporting pilot installation~\cite{kiosknet}. MotoPost employed dual mode mobile phones as data mules, and SMTP as the base application protocol for message transfer~\cite{motopost}.
+Transporting email over a delayed or intermittent network connection is not novel. Previous studies are terrestrial and were developed for rural regions with no continuous connection. DakNet~\cite{daknet} used automobiles to transport email from village to village, and to the internet gateway, offering an inexpensive alternative to a wired connection. KioskNet~\cite{kiosknet} improved on this with a whole system including kiosk controllers, naming, routing and a security framework, reporting a pilot installation. MotoPost~\cite{motopost} used dual-mode mobile phones as data mules, with SMTP as the base application protocol for message transfer.
 
-Security concerns are taken care of as identity and confidentiality issues for all three. KioskNet uses a public key infrastructure framework to provide security as privacy, confidentiality and integrity and takes care of user management and logging~\cite{kiosknet}. None of the three has filters to eliminate junk mails, and none reports how many of those are received during their deployments.
+Security is addressed as identity and confidentiality for all three. KioskNet~\cite{kiosknet} uses a public-key-infrastructure framework to provide privacy, confidentiality and integrity, and handles user management and logging. None of the three has filters to remove junk mail, and none reports how much was received during their deployments.
 
 
-The latest set of draft standards addresses space. One of them concerns a gateway
-that terminates the SMTP session locally and passes the delivered message to the Bundle Protocol~\cite{johnson-dtn-interplanetary-smtp-01}. Another draft discusses how to encapsulate the message into a bundle~\cite{blanchet-dtn-email-over-bp-06}. A third one concerns a naming model for out-of-this-world domains and the need to arrange the message authentication components, including DMARC, so that only local to the network resources are necessary to handle the request~\cite{johnson-dtn-interplanetary-dns-04}. BPMail is an open implementation of the gateway approach~\cite{bpmail}.
+The latest set of draft standards addresses space. One concerns a gateway that terminates the SMTP session locally and passes the message to the Bundle Protocol~\cite{johnson-dtn-interplanetary-smtp-01}. Another describes how to encapsulate the message into a bundle~\cite{blanchet-dtn-email-over-bp-06}.A third concerns a naming model for off-Earth domains and the need to structure message-authentication components, including DMARC, so that only resources local to the network are needed to handle the request~\cite{johnson-dtn-interplanetary-dns-04}. BPMail is an open implementation of the gateway approach~\cite{bpmail}.
 
-Spam is mentioned in just one of those drafts, which states that spam can cause denial of service problems to a store-and-forward network and recommends two solutions for it: checking the integrity and authenticity of the sending network, as in the case of DMARC, and whitelisting the sending networks~\cite{johnson-dtn-interplanetary-smtp-01}. These are preventive measures addressing the question of who is allowed to send messages. Neither mentions any tool that could examine messages actually arriving. The security section of the encapsulation draft merely notes that the payload with bad data is, per se, a denial of
-service~\cite{blanchet-dtn-email-over-bp-06}.
-
+Spam is mentioned in just one of those drafts, which states that spam can cause denial-of-service problems for a store-and-forward network and recommends two solutions: checking integrity and authenticity of the sending network, as with DMARC, and whitelisting sending networks~\cite{johnson-dtn-interplanetary-smtp-01}. These are preventive measures addressing who is allowed to send messages. Neither draft mentions any tool that could examine messages as they arrive. The security section of the encapsulation draft merely notes that a payload carrying bad data is itself a denial of service~\cite{blanchet-dtn-email-over-bp-06}.
 
 
 \section{Anti-spam filtering}
 
-The spam detection area is large and entirely focuses on classification accuracy.
-This survey on machine learning methods describes major techniques, their comparative
-advantages and open issues in the perspective of filter ability to separate spam
-from non-spam messages~\cite{dada-mlspam}. The digest-based approach to detecting
-spam messages is also considered in such terms: the algorithm underlying
-collaborative filtering was tested in respect of three criteria: its robustness to
-automation, robustness to attacks and false positive rate~\cite{damiani-digest}.
+The spam-detection area is large and focuses mainly on classification accuracy. A survey of machine-learning methods~\cite{dada-mlspam} describes major techniques, their comparative advantages, and open issues, in terms of a filter's ability to separate spam from non-spam. A digest-based approach to detecting spam is considered in the same terms: the algorithm underlying collaborative filtering was tested against three criteria, its robustness to automation, robustness to attacks, and false-positive rate~\cite{damiani-digest}.
 
-The underlying mechanisms implemented by the tools used in this study are described
-by their projects rather than in academic papers. The way how blocklist is published
-and queried in the form of DNS zone is described by Spamhaus~\cite{spamhaus}. The
-network configuration of SpamAssassin contains the description of its network rules
-and parameters that constrain them~\cite{saconf}. URI blocklist plugin of the
-program also contains the detailed description of its DNS query starting from
-resolving name servers to address~\cite{sauridnsbl}. The sender authentication
-techniques SPF, DKIM and DMARC are specified in RFC 7208~\cite{rfc7208},
-RFC 6376~\cite{rfc6376} and RFC 7489~\cite{rfc7489} correspondingly.
-Rspamd~\cite{rspamd} and Vipul's Razor~\cite{razor} are also documented by their
-projects.
+The underlying mechanisms implemented by the tools used in this study are documented by their projects rather than in academic papers. How a blocklist is published and queried as a DNS zone is described by Spamhaus~\cite{spamhaus}. SpamAssassin's network configuration~\cite{saconf} describes its network rules and the parameters that constrain them. The URI blocklist plugin~\cite{sauridnsbl}describes its DNS queries, from resolving name servers to addresses. The sender-authentication techniques SPF, DKIM and DMARC are specified in RFC 7208~\cite{rfc7208}, RFC 6376~\cite{rfc6376} and RFC 7489~\cite{rfc7489} correspondingly. rspamd~\cite{rspamd} and Vipul's Razor~\cite{razor} are also documented by their projects.
 
 What this body of work measures is detection rate and false positives. What it does
 not measure is time. The evaluations are run on a network where a lookup returns in
-milliseconds, so the cost of reaching a remote service never appears as a variable.
+milliseconds, so the cost of reaching a remote service does not appears as a variable.
 
 \section{DTN security}
 
-The security architecture for DTN defines the security requirements of the store-and-forward network and rationale behind choosing or rejecting specific security measures~\cite{irtf-dtnrg-sec-overview-06}. The problem addressed by the security architecture for DTN is scarcity of resources on the node and utilization of those resources by inappropriate traffic. The solution proposed by this architecture is authentication of the bundle to ensure that the bundle has originated from a legitimate entity and can use the network. In other words, there is a common assumption between the current work and this research, but different solutions are being provided.
+The DTN security overview~\cite{irtf-dtnrg-sec-overview-06} defines the security requirements of a store-and-forward network and the rationale for choosing or rejecting specific security measures. The problem it addresses is scarcity of resources on a node and their use by inappropriate traffic. It proposes authenticating the bundle to ensure it originates from a legitimate entity permitted to use the network. This shares a starting assumption with the present work, that unwanted traffic is the threat, but answers it differently: authentication of the sender rather than classification of the message.
 
 \section{Related problems}
 
 Four problems already studied elsewhere have the same structure as the one examined
 here.
 
-The first is the round-trip costs embedded in the protocol, which will be transported over DTN. The process of routing that defined the DTN problem recognized the importance of the DNS query and response, as well as a reliable transport exchange for an SMTP transaction~\cite{jain-dtn-routing}. SMTP itself was solved by terminating the connection over a gateway~\cite{johnson-dtn-interplanetary-smtp-01}. This issue arose once again with HTTP encapsulated over the Bundle Protocol; this draft explains that while version negotiation and URL redirection may still be possible in the proposed solution, they are not recommended, since they will require further bundling over the delayed network~\cite{blanchet-dtn-http-over-bp-04}. The issue here is the same issue that is important to the network lookups performed by the filter.
+The first is the round-trip cost embedded in a protocol that is then carried over DTN. The routing study that defined the DTN problem~\cite{jain-dtn-routing} recognised the importance of the DNS query and response, and of a reliable transport exchange, for an SMTP transaction. The SMTP case was handled by terminating the connection at a gateway.
+It arose again with HTTP encapsulated over the Bundle Protocol: that draft~\cite{blanchet-dtn-http-over-bp-04} explains that while version negotiation and URL redirection remain possible, they are not recommended, since they require further bundling over the delayed network. The same issue applies to the network lookups a filter performs.
 
-The second issue is sequential DNS lookups. Spamhaus explains that performing blocklist queries sequentially rather than simultaneously increases the cost of the individual query from tens to hundreds of milliseconds, and aggregates in cost among a set of queries, mentioning that a normal mail transaction will have tens of these queries~\cite{spamhaus-qname}. This increase will be minimal on a terrestrial network, but the principle is significant under delay.
+The second is sequential DNS lookups. Spamhaus~\cite{spamhaus-qname} explains that performing blocklist queries sequentially rather than simultaneously raises the cost of an individual query from tens to hundreds of milliseconds, and that this accumulates across a set of queries, noting that a normal mail transaction involves tens of these queries. This increase is minimal on a terrestrial network, but the principle matters under delay.
 
+The third is that latency of network tests is well recognised by their operators. Advice on the SpamAssassin users' mailing list, archived on the project wiki~\cite{sa-netlatency}, describes the difference between processor time and latency: network tests, including blocklist and digest tests, cause considerable latency but need little processor time, and it advises allowing up to fifteen or twenty seconds per message so the test does not time out. That figure assumes a network with millisecond lookups.
 
-The third one is that the latency of network tests has been well recognized by those
-who operate such testing methods. The tips posted in SpamAssassin users mailing list,
-and kept on the SpamAssassin project wiki as well, describe the difference between
-processor time and latency and say that the network tests, including blocklist and
-digest ones, cause considerable latency but require insignificant processor time and
-advise to give up to fifteen or twenty seconds for each message not to timeout the
-test~\cite{sa-netlatency}. This number is chosen for the network with millisecond
-lookups.
-
-The fourth one is where the filtering process occurs. One paper relocates the
-filtering system from the receiving server to the sending server in order to
-reduce detection time~\cite{pour-relocating}.
+The fourth one is where the filtering process occurs. One paper relocates the filtering system from the receiving server to the sending server in order to reduce detection time~\cite{pour-relocating}.
 
 \section{Methods and their limits}
 
 Each of these fields evaluates in a way that could not produce the result this
 dissertation needs.
 
+The DTN application evaluation reasons from the specification. The HTTP encapsulation draft~\cite{blanchet-dtn-http-over-bp-04} identified the round-trip problem through protocol analysis and designed around it. This works when the round-trips can be seen in the protocol. The network checks a filter makes are not: they happen in the scanner process, driven by plugin behaviour, timeouts, and chains of lookup dependencies that do not appear in any protocol document. The chain of URI blocklist lookups, for example, is specified only in the plugin documentation~\cite{sauridnsbl}. Protocol analysis cannot find them.
 
-The DTN application evaluation reasons from the specification. The HTTP
-encapsulation draft identified the round-trip problem through protocol analysis and
-designed around it~\cite{blanchet-dtn-http-over-bp-04}. This works when the
-round-trips can be seen in the protocol. The network checks made by the filters are
-not: they happen in the scanner process according to plugin behavior, timeouts, and
-chains of lookup dependencies which do not appear in any protocol document. For
-example, the chain of URI blocklist lookups is specified only in the plugin
-documentation~\cite{sauridnsbl}. Protocol analysis can not find them.
+The anti-spam evaluation measures a filter's performance on a corpus over a low-latency network, reporting accuracy~\cite{dada-mlspam,damiani-digest}. Done this way, it produces no timing information, and cannot, because the latency it would measure is not present.
 
-The anti-spam evaluation measures the performance of a filter on a corpus using a
-fast network and reporting accuracy~\cite{dada-mlspam,damiani-digest}. When done
-this way, the method will produce no timing information whatsoever, and could not,
-because the latency required for evaluation does not exist.
+The DTN evaluation uses simulation and emulation, measuring delivery ratio, routing behaviour, and buffer occupancy~\cite{jain-dtn-routing}.
 
-The DTN evaluation uses simulation and emulation, measuring delivery ratio, routing
-behavior, and buffer occupancy~\cite{jain-dtn-routing}.
-
-This dissertation therefore runs the real tools over a real DTN stack under
-controlled delay, and records per-message timing, verdicts and packet captures.
-Behaviour that is neither written in a specification nor visible in a terrestrial
-accuracy benchmark can only be found by running the software and observing the
-network.
+This dissertation therefore runs the tools themselves over a working DTN stack under controlled delay, and records per-message timing, verdicts, and packet captures. Behaviour that is neither written in a specification nor visible in a terrestrial accuracy benchmark can only be found by running the software and observing the network.
 
 \section{The gap}
 
-There are four bodies of literature that fall slightly short of the research question.
-Deployments and drafts for DTN email transfer send mail through a delayed channel but
-they don’t filter any mail. Literature about anti-spam filters measure the accuracy
-of classification filters but never measure the filters behavior under a delayed
-network. The DTN security literature considers the cost of undesirable traffic but it
-addresses it using authentication and not classification filters. The adjacent
-application literature identifies the round-trip time problem but solves it
-proactively without measurement.
+Four bodies of literature fall short of the research question. Deployments and drafts for DTN email transfer send mail through a delayed channel but do not filter it. The anti-spam literature measures the accuracy of classification filters but does not measure filter behaviour under delay. The DTN security literature considers the cost of undesirable traffic but addresses it through authentication rather than classification. The adjacent application literature identifies the round-trip problem but solves it proactively, without measurement.
 
-The gateway draft identifies spam as a threat to a store-and-forward network but
-stops at policy~\cite{johnson-dtn-interplanetary-smtp-01}. None of the studies
-measure the behavior of the tools due to delay in their lookups. This is the research
-question answered in this dissertation.
+The gateway draft~\cite{johnson-dtn-interplanetary-smtp-01} identifies spam as a threat to a store-and-forward network but stops at policy. None of these studies measures how the tools behave when delay is added to their lookups. That behaviour is the research question this dissertation answers.
 
 \section{Summary}
 
-The transport problem for email over DTN has been addressed, by deployments and by
-standards work. The filtering problem has not. The tools that would do the
-filtering depend on network services whose cost has only ever been measured on a
-fast network, and the fields that would otherwise study this use methods that
-cannot observe it. The next chapter describes the testbed built to measure it
-directly.
-
+The transport problem for email over DTN has been addressed by deployments and standards work. The filtering problem has not. The filtering tools depend on network services whose cost has only been measured on a low-latency network, and the fields that might study it rely on methods that cannot observe that cost. The next chapter describes the testbed built to measure it directly.
 
 
 

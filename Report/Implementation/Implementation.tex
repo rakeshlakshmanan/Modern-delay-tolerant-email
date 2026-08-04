@@ -13,27 +13,15 @@ supervision.
 
 \section{Basis and Scope of This Work}
 
-The DTN transport layer of the testbed follows the approach established in earlier
-work on delay-tolerant email, which built and validated an ION and
-BPMail pipeline for carrying mail over the Bundle Protocol. Same set of software has been used, but instead of being containerized, the software stack has been created on virtual machines due to the reasons mentioned in the previous chapter.
+The DTN transport layer of the testbed follows the approach established in earlier work on delay-tolerant email, which built and validated an ION and BPMail pipeline for carrying mail over the Bundle Protocol. The same set of software is used, but instead of being containerised, the software stack is built on virtual machines, for the reasons given in the previous chapter.
 
-All the other components of the testbed architecture are new, including delay
-introduction on the relay, external resolver, installation and setup of all the
-anti-spam systems, the measurement methodology and the experimentation setup.
+All other components of the testbed architecture are new: delay introduction on the relay, the external resolver, installation and setup of all anti-spam tools, the measurement methodology, and the experimental design.
 
 \section{Environment and Dependencies}
 
-Five VMs are used in the testbed in an Apple Silicon MacBook Air in UTM. All five use
-Ubuntu 22.04 LTS (ARM64). There are three servers called \textit{mail1}, \textit{space}
-and \textit{mail2}; there are two clients – one for each network. The mail, DTN and
-anti-spam applications are installed on the servers. Clients use Thunderbird and are only
-used to verify that the mail transfer works correctly end-to-end and do not participate
-in the measurement process.
+The testbed uses five VMs on an Apple Silicon MacBook Air, under UTM. All five run Ubuntu 22.04 LTS (ARM64). Three servers are named mail1, space and mail2; two clients, one for each network. The mail, DTN and anti-spam applications are installed on the servers. Clients run Thunderbird and serve only to verify that mail transfer works end-to-end; they do not participate in measurement.
 
-There are three libraries which are more recent than those in the Ubuntu 22.04
-repositories and have to be built from source on each server before ION and BPMail are
-compiled: mbedtls 2.28.8, gmime 3.2.7 and c-ares 1.34.4. Each library is built in order
-and then \texttt{ldconfig} is run to make sure that the libraries are found first.
+Three libraries are more recent than those in the Ubuntu 22.04 repositories and must be built from source on each server before ION and BPMail are compiled: mbedtls 2.28.8, gmime 3.2.7 and c-ares 1.34.4. Each is built in order, then \texttt{ldconfig} is run so the libraries are found first.
 
 \section{DTN Layer}
 
@@ -105,8 +93,7 @@ first build failed with an error reporting that no value was defined for
 \texttt{platform.h} includes the system headers that define \texttt{MAXPATHLEN} only
 when the \texttt{linux} platform macro is set, guarded by \texttt{\#ifdef linux}.
 BPMail's \texttt{meson.build} specified \texttt{c\_std=c17}, and strict ISO C17
-disables non-standard platform macros such as \texttt{linux}, so the guard never
-passed and the definition was never picked up, even when \texttt{-Dlinux} was passed
+disables non-standard platform macros such as \texttt{linux}, so the guard did not pass and the definition was never picked up, even when \texttt{-Dlinux} was passed
 on the command line. Changing the standard to GNU C17 keeps those platform macros
 while remaining C17-compliant:
 
@@ -164,25 +151,11 @@ A background daemon runs \texttt{bpmailrecv} in a loop on each node and pipes wh
 receives into \texttt{sendmail}, which delivers it to the local mailbox. Dovecot
 serves those mailboxes over IMAP, in mbox format.
 
-This path is what the Thunderbird clients use, and it is how the testbed was
-verified as a working mail system. It is not the path used for measurement. The
-experiments call \texttt{bpmailsend} and \texttt{bpmailrecv} directly, for the
-reasons given in Section~\ref{sec:harness-agents}.
+This path is what the Thunderbird clients use, and how the testbed was verified as a working mail system. It is not the path used for measurement. The experiments call bpmailsend and bpmailrecv directly, for the reasons given in Section~\ref{sec:harness-agents}.
 
 \section{Delay Simulation}
 
-The link delay is applied on space, using \texttt{tc} with the \texttt{netem}
-queueing discipline, attached to the Moon-facing interface. It therefore acts on all
-traffic crossing the boundary between the two networks.
-
-\texttt{tc} can only shape traffic leaving an interface. The outbound direction is
-straightforward: a \texttt{netem} qdisc is attached to the root of the Moon-facing
-interface. The inbound direction has no equivalent, because there is no egress queue
-to attach a qdisc to. The usual way around this is an Intermediate Functional Block
-(ifb) device, a virtual interface whose own egress path can be shaped normally.
-Traffic arriving on the Moon-facing interface is matched by a filter and redirected
-to the ifb device with a \texttt{mirred} action, and a second \texttt{netem} qdisc on
-the ifb device applies the same delay. The full sequence is:
+The link delay is applied on space with tc and the netem queueing discipline, on the Moon-facing interface, so it acts on all traffic crossing the boundary between the two networks. As explained in \ref{sec:delay}, tc shapes only egress, so the outbound leg uses a netem qdisc on the interface root and the inbound leg is redirected to an ifb device carrying the same delay. The full sequence is:
 
 \begin{lstlisting}
 sudo modprobe ifb
@@ -248,7 +221,7 @@ SpamAssassin is invoked through its standalone binary rather than through
 spamassassin < "$FILE"
 \end{lstlisting}
 
-The client and daemon pair was tried first and had to be abandoned. When
+The client and daemon pair was tried first and had to be abandoned.When
 \texttt{spamc} cannot reach \texttt{spamd} it fails open, passing the message through
 unchanged, so every message came back with no \texttt{X-Spam-Status} header and no
 indication that anything had gone wrong. The standalone binary scans without a
@@ -268,15 +241,13 @@ echo 'spf_timeout 1.5' | sudo tee -a /etc/spamassassin/local.cf
 
 \subsection{rspamd}
 
-rspamd runs as a daemon and is scanned through its client:
+rspamd runs as a daemon and is invoked through its client:
 
 \begin{lstlisting}
 rspamc --ip 1.2.3.4 --mime < "$FILE"
 \end{lstlisting}
 
-The \texttt{--ip} option supplies a client address so that the message is treated as
-having arrived from outside. Without it, mail presented locally is treated as
-internal and the network checks that this study is concerned with are skipped.
+The \texttt{--ip} option supplies a client address so the message is treated as having arrived from outside. Without it, mail presented locally is treated as internal and the network checks central to this study are skipped.
 
 rspamd caches state in the running daemon, so it is restarted before each run to
 start from a cold cache. The reduced-timeout profile writes a single override file
@@ -317,13 +288,7 @@ That a source patch is the only way to change this value is itself a finding abo
 the tool, and is returned to in Chapter~5.
 
 \section{Email Corpus}
-The corpus is drawn from Richard Clayton's public spam archive, a collection of real
-messages captured from live mail traffic. From it, 681 messages were used for every
-run. The same 681 messages, in the same sorted order, were scanned in all three runs
-of every tool, so that per-message comparisons across runs refer to identical inputs.
-The corpus is used to characterise tool behaviour under delay rather than to measure
-absolute detection accuracy, so what matters here is that the message set is fixed and
-realistic, not that it is balanced between spam and legitimate mail.
+The corpus is drawn from Richard Clayton's public spam archive, a collection of spam messages captured from live mail traffic. 681 of these were used in every run. The same 681 messages, in the same sorted order, were scanned in all three runs of every tool, so per-message comparisons across runs refer to identical inputs. The corpus is used to characterise tool behaviour under delay rather than to measure absolute detection accuracy, so what matters is that the message set is fixed and realistic, not that it is balanced between spam and legitimate mail.
 
 \section{Run Harness}
 \label{sec:harness}
@@ -336,9 +301,7 @@ drives the testbed over SSH. A single command performs a complete pass:
 python3 run.py --tool spamassassin
 \end{lstlisting}
 
-Every parameter it uses is held in one configuration file, so the procedure is
-identical between tools and between passes, and the file itself records the exact
-settings a set of results was produced under.
+Every parameter it uses is held in one configuration file, so the procedure is identical between tools and between passes, and the file itself records the exact settings under which a set of results was produced.
 
 \subsection{Structure}
 
@@ -377,8 +340,7 @@ of them can abort the pass:
   test query.
   \item \textbf{ION.} ION is restarted across all three nodes, which resets the
   contact window so that it covers the whole pass.
-  \item \textbf{Tool.} The tool's version command must return something, which
-  confirms it is installed; the version string is recorded with the results.
+  \item \textbf{Tool.} The tool's version command must return output, confirming it is installed; the version string is recorded with the results.
 \end{itemize}
 
 \subsection{Sequence of a run}
@@ -392,13 +354,7 @@ from a previous run is deleted, the tool is reset, and any leftover \texttt{nete
 configuration is removed. The resolver's infrastructure cache is dumped and saved, so
 that its state before the run is on record.
 
-The tool profile for the run is then applied, and the delay if the run calls for it.
-The round-trip time is then measured by pinging mail1 from mail2, and checked against
-a window: 2400 to 2900\,ms for a delayed run, and under 150\,ms for the baseline. A
-measurement outside the window aborts the run. This is the most important gate in the
-harness. A run whose delay was not actually in place, or was applied twice, would
-produce plausible-looking numbers that mean nothing, and the failure would not be
-obvious afterwards.
+The tool profile for the run is then applied, along with the delay if the run calls for it. The round-trip time is measured by pinging mail1 from mail2 and checked against a window: 2400 to 2900 ms for a delayed run, and under 150 ms for the baseline. A measurement outside the window aborts the run. This is the most important gate in the harness. A run whose delay was not actually in place, or was applied twice, would produce plausible-looking numbers that mean nothing, and the failure would not be obvious afterwards.
 
 Packet capture is then started on space and on mail2, excluding management SSH so
 that the harness's own traffic does not appear in the bandwidth figures:
@@ -460,16 +416,14 @@ set in the configuration.
 When the sender reports \texttt{DONE} the harness enters a drain phase, because
 messages are still in flight and will keep arriving for at least one one-way delay
 afterwards. It waits for the receiver's count to reach the number sent, up to fifteen
-minutes, then writes a \texttt{STOP} file that the receiver checks between bundles so
-that it exits cleanly rather than being killed mid-scan.
+minutes, then writes a \texttt{STOP} file that the receiver checks between bundles, so it exits cleanly rather than being killed mid-scan.
 
 Captures are stopped, and the resolver's state is recorded again. Two health figures
 are taken from it: the highest retransmit timeout in the infrastructure cache, and
 the number of log entries reporting answers discarded for arriving too late. A run
 whose highest retransmit timeout has reached 120{,}000\,ms is marked
 \texttt{SUSPECT} in its manifest, because that is the ceiling and indicates the
-resolver stopped working properly during the run. This is checked automatically so
-that a compromised run is flagged at the time rather than discovered later.
+resolver stopped working properly during the run. The check runs automatically, so a compromised run is flagged at the time rather than discovered later.
 
 All artifacts are then pulled back to the Mac. The sent and received records are
 reconciled by Message-ID to identify any messages that did not arrive, and the
@@ -479,10 +433,7 @@ verdicts differently: SpamAssassin in an \texttt{X-Spam-Status} header that fold
 across lines, rspamd in \texttt{X-Spam-*} headers added to the message, and Razor in
 its exit code alone.
 
-Each run finally writes a manifest recording the tool and version, the profile, the
-measured round-trip time and the gate it was checked against, the timings, the
-message counts, the resolver health figures and the resulting status. The manifest is
-what makes a set of results interpretable months later.
+Each run finally writes a manifest recording the tool and version, the profile, the measured round-trip time and the gate against which it was checked, the timings, the message counts, the resolver health figures, and the resulting status. The manifest is what makes a set of results interpretable months later.
 
 \section{Running an Experiment}
 
@@ -502,10 +453,4 @@ three runs is written at the end of the pass.
 
 \section{Summary}
 
-The testbed is a working DTN mail system with a controllable link delay, a resolver
-that reaches real blocklists, and three anti-spam tools each configurable into a
-default and a reduced-timeout condition. The experiments are driven by a
-configuration-file-based harness that verifies the testbed before each run, refuses
-to proceed if the delay is not what it should be, collects every artifact, and flags
-runs whose resolver state indicates the results cannot be trusted. The next chapter
-presents what those runs measured.
+The testbed is a working DTN mail system with a controllable link delay, a resolver that reaches live blocklists, and three anti-spam tools, each configurable into a default and a reduced-timeout condition. The experiments are driven by a configuration-file-based harness that verifies the testbed before each run, refuses to proceed if the delay is not correct, collects every artifact, and flags runs whose resolver state indicates the results cannot be trusted.

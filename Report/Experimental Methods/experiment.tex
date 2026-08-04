@@ -1,14 +1,12 @@
 \chapter{System Design}
 
 
-This chapter describes the testbed used to evaluate anti-spam tools under the one-way delay of a deep-space DTN link. It sets out the node layout, the host model and the reasons for it, the tools under test, the DTN configuration, the delay simulation, and the experimental design.
+This chapter describes the testbed used to evaluate anti-spam tools under one-way delay representing a deep-space DTN link. It sets out the node layout, the host model and the reasons for it, the tools under test, the DTN configuration, the delay simulation, and the experimental design.
 
 \section{System Architecture}
 \label{sec:arch}
 
-The testbed has two networks joined by a relay. Each node is a separate virtual
-machine running Ubuntu 22.04 LTS. Earth uses the 192.168.100.0/24 subnet and Moon
-uses the 192.168.200.0/24 subnet. The nodes are:
+The testbed has two networks joined by a relay. Each node is a separate virtual machine running Ubuntu 22.04 LTS. Earth uses 192.168.100.0/24 and Moon uses 192.168.200.0/24. The nodes are:
 
 \begin{itemize}
   \item \textbf{Mail1 (Earth).} The Earth mail server. Runs Postfix and Dovecot. Address 192.168.100.10.
@@ -25,14 +23,7 @@ uses the 192.168.200.0/24 subnet. The nodes are:
   Thunderbird and connects to Mail2 the same way.
 \end{itemize}
 
-Mail moves server to server across the DTN link: a message submitted on one mail
-server is carried as a bundle through the relay to the other. ION runs on all three
-servers, so the bundle path is node 1 (Earth) to node 2 (relay) to node 3 (Moon).
-The relay is the only path between the two networks, so all traffic between Earth
-and Moon passes through it. This is where the one-way link delay is applied,
-standing in for the Earth--Moon propagation time. Mailboxes use the mbox format,
-and each user reads mail from their local server. The topology is shown in
-Figure~\ref{fig:topology}.
+Mail moves server to server across the DTN link: a message submitted on one mail server is carried as a bundle through the relay to the other. ION runs on all three servers, so the bundle path is node 1 (Earth) to node 2 (relay) to node 3 (Moon). The relay is the only path between the two networks, so all traffic between Earth and Moon passes through it. This is where the one-way link delay is applied, standing in for the Earth–Moon propagation time. Mailboxes use mbox format, and each user reads mail from their local server. The topology is shown in Figure~\ref{fig:topology}.
 
 \begin{figure}[ht]
 \centering
@@ -90,31 +81,24 @@ The path of a message is shown in Figure~\ref{fig:dataflow}.
 \label{sec:env}
 
 \subsection{Virtual machines over containers}
-The testbed runs on full virtual machines (Ubuntu 22.04 LTS, ARM64, under UTM on
-macOS). Containers were considered but not used. The anti-spam experiment has three
-needs that decide this:
+The testbed runs on full virtual machines (Ubuntu 22.04 LTS, ARM64, under UTM on macOS). Containers were considered but not used. The anti-spam experiment has three needs that settle this:
 
 \begin{itemize}
-   \item \textbf{VMs match the real topology.} The testbed mimics three separate machines — Earth, Space, Moon — connected by a long-delay link, and full VMs naturally model this, whereas containers all share one kernel on one host.
-  \item \textbf{Simpler delay setup.} Setting up ifb to delay incoming traffic is fiddly and error-prone inside containers, but it's straightforward on a VM where each node has its own kernel and network stack.
-  \item \textbf{DTN state stays isolated per node.}  Each ION node keeps its own bundle store and contact schedule, and a full VM ensures the link delay sits on the path itself rather than leaking into a node's own processing.
+   \item \textbf{VMs match the topology.} The testbed mimics three separate machines — Earth, Space, Moon — connected by a long-delay link, and full VMs naturally model this, whereas containers share one kernel on one host.
+  \item \textbf{Simpler delay setup.} Setting up ifb to delay incoming traffic is fiddly and error-prone inside containers, but it is straightforward on a VM where each node has its own kernel and network stack.
+  \item \textbf{DTN state stays isolated per node.} Each ION node keeps its own bundle store and contact schedule, and a full VM ensures the link delay sits on the path itself rather than leaking into a node's own processing.
 \end{itemize}
 
 \section{Email stack}
 \begin{itemize}
-  \item \textbf{Postfix} was chosen for its clear interface for handing mail to an
-  external program, which is needed to pass messages to the DTN layer.
-  \item \textbf{Dovecot} was chosen because it works directly with the mbox format
-  and the local system accounts that Postfix delivers to.
-  \item \textbf{Thunderbird} was chosen as a real mail client, so the message
-  traffic in the testbed matches what a normal user would generate.
+  \item \textbf{Postfix} was chosen for its clear interface for handing mail to an external program, needed to pass messages to the DTN layer.
+  \item \textbf{Dovecot} was chosen because it works directly with mbox format and the local system accounts that Postfix delivers to.
+  \item \textbf{Thunderbird}was chosen as a standard mail client, so the message traffic in the testbed matches what a normal user would generate.
 \end{itemize}
 
 \section{DTN stack}
 \begin{itemize}
-  \item \textbf{ION-DTN} was chosen for its deep-space flight heritage and its
-  existing tool for carrying email over the Bundle Protocol, which connects
-  directly to the mail stack.
+  \item \textbf{ION-DTN}was chosen for its deep-space flight heritage and its existing tool for carrying email over the Bundle Protocol, which connects directly to the mail stack.
 \end{itemize}
 
 \section{Anti-Spam Tool Selection}
@@ -131,8 +115,7 @@ Three tools were selected, each with a different external dependency:
   nonce server, reached over TCP on port 2703.
 \end{itemize}
 
-The three cover the main ways a filter reaches the network: blocklist DNS
-(SpamAssassin, rspamd), a TCP request to a central reputation server (Razor). Testing one tool would show only one failure path. 
+The three cover the main ways a filter reaches the network: blocklist DNS (SpamAssassin, rspamd) and a TCP request to a central reputation server (Razor). Testing one tool would show only one failure path.
 
 
 \section{DTN Design}
@@ -151,23 +134,11 @@ implementation chapter.
 
 \section{Delay Simulation Design}
 \label{sec:delay}
-Delay is applied with netem on the relay, to all traffic crossing the boundary
-between the Earth and Moon networks. A real Earth--Moon link delays both directions
-of travel: a signal takes about 1.3 seconds each way, so a round-trip takes about
-2.6 seconds. The testbed reproduces this by delaying each leg on the relay's
-Moon-facing interface.
+Delay is applied with netem on the relay, to all traffic crossing the boundary between the Earth and Moon networks. An Earth–Moon link delays travel in both directions: a signal takes about 1.3 seconds each way, so a round-trip takes about 2.6 seconds. The testbed emulates this by delaying each leg on the relay's Moon-facing interface.
 
-The complication is that \texttt{tc} can only shape traffic \emph{leaving} an
-interface, so the two legs have to be handled separately. The Earth-to-Moon leg is
-the egress direction on that interface and is delayed by a netem qdisc attached to
-the interface root. The Moon-to-Earth leg arrives as ingress, and ingress has no
-egress queue to attach a qdisc to. To delay it, incoming traffic is redirected to an
-Intermediate Functional Block (ifb) device, whose own egress path can be shaped
-normally, and the same netem delay is applied there. The two mechanisms: the root
-qdisc and the ifb device are therefore the two halves of a single symmetric
-delay, not a way to delay one direction while sparing the other. Traffic that stays
-within a single network never reaches the relay and is unaffected. This is shown in
-Figure~\ref{fig:ifb}.
+The complication is that \texttt{tc} can only shape traffic \emph{leaving} an interface, so the two legs have to be handled separately. The Earth-to-Moon leg is the egress direction on that interface and is delayed by a netem qdisc attached to the interface root. The Moon-to-Earth leg arrives as ingress, and ingress has no egress queue to attach a qdisc to. To delay it, incoming traffic is redirected to an Intermediate Functional Block (ifb) device, whose own egress path can be shaped normally, and the same netem delay is applied there. The two mechanisms, the root qdisc and the ifb device are therefore the two halves of a single symmetric delay, not a way to delay one direction while sparing the other. Traffic that stays within a single network never reaches the relay and is unaffected. This is shown in Figure~\ref{fig:ifb}.
+
+
 
 \begin{figure}[ht]
 \centering
@@ -197,10 +168,7 @@ the relay and is not delayed.}
 \label{fig:ifb}
 \end{figure}
 
-Delay is the independent variable. The experiments use a representative one-way delay
-of 1.3 seconds, a round-trip of about 2.6 seconds, as a deep-space operating
-point. The testbed allows any value to be set, so the same setup covers the range
-from short Earth--Moon delays to multi-minute deep-space delays.
+Delay is the independent variable. The experiments use a representative one-way delay of 1.3 seconds, a round-trip of about 2.6 seconds, as a deep-space operating point. The testbed allows any value to be set, so the same setup covers the range from short Earth–Moon delays to multi-minute deep-space delays.
 
 \subsection{DNS Resolver}
 
@@ -212,15 +180,11 @@ returning an error or an empty answer rather than a listing~\cite{spamhaus}.
 Scanning through one would report no spam for reasons unrelated to delay and make
 the results meaningless.
 
-The testbed therefore uses a private recursive resolver, running on an
-off-testbed virtual machine with ordinary internet access to the live blocklist
-zones. The Moon node runs a local \texttt{unbound} instance that forwards to it.
+The testbed therefore uses a local resolver, running on an off-testbed virtual machine with ordinary internet access to the live blocklist zones. The Moon node runs a local \texttt{unbound} instance that forwards to it.
 Three properties make this the right choice:
 
 \begin{itemize}
-  \item \textbf{Valid blocklist answers.} A dedicated resolver querying the
-  blocklist zones is what those operators expect, so listings are returned
-  normally and the only thing added to a lookup is the injected link delay.
+  \item \textbf{Valid blocklist answers.} A dedicated resolver querying the blocklist zones is what those operators expect, so listings are returned normally and all that is added to a lookup is the injected link delay.
   \item \textbf{Control of the resolver's own timers.} A public resolver cannot
   be reconfigured, yet the timers that decide how a resolver treats a late answer
   turn out to determine whether detection survives delay (Chapter~5). A private

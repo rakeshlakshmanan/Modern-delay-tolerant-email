@@ -173,22 +173,9 @@
 % evaluation
 % conclusion
 
-The links in deep space suffer from high delays and outages that make the protocols
-assuming the high-speed always available network unsuitable for use with them. The
-Delay Tolerant Networking (DTN) protocol allows delivering e-mail  through
-such links, but the problem of filtering the spam content in such environment has
-never been studied. It is important since each spam filtering technique requires a live
-access to remote lookup servers which are now accessed over the delayed link.
-This research measures the performance of three commonly used filters: Spam-
-Assassin, rspamd, and Vipul’s Razor, in the scenario of accessing them through the
-DTN link and provides explanation of the results obtained.
+Communications links in deep space suffer from high delays and disruptions that make protocols designed for a low-latency, always-available network unsuitable for use over them. Delay-Tolerant Networking (DTN) allows e-mail to be delivered over such links, but the problem of filtering spam in that environment has been little studied. This matters because many widely-used spam filters depend on live lookups to remote servers, which must now be reached over the delayed link. This research measures the performance of three commonly used filters: Spam-Assassin, rspamd, and Vipul’s Razor, in the scenario of accessing them through DTN link and draws conclusions and recommendations from the results obtained.
 
-A testbed with five nodes for testing the interaction between Earth and Moon
-consisting of real applications: Postfix and Dovecot for message delivery, ION-DTN
-and BPMail gateway for message transmission, and a proprietary DNS resolver for
-blocklist lookups was created. The delay equal to 1.3 second was imposed on the
-relay node and each filter was tested using 681 messages under three scenarios, 
-a no-delay baseline, the delay applied with the tool's default timeouts, and the delay with the tool's own timeout reduced below the round-trip, while recording per-message verdicts, scan times, and packet captures.
+A testbed with five nodes was created to test an emulated Earth–Moon link, consisting of real applications: Postfix and Dovecot for message delivery, ION-DTN and BPMail gateway for message transmission, and a locally installed DNS resolver for blocklist lookups. A delay equal to 1.3 seconds was imposed on the relay node and each filter was tested using 681 known-spam messages under three scenarios, a no-delay baseline, the delay applied with the tool's default timeouts, and the delay with the tool's own timeout reduced below the round-trip, while recording per-message verdicts, scan times, and packet captures.
 
 
 

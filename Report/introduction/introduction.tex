@@ -4,50 +4,32 @@
 
 Communication in space is not like communication on Earth. The distances are large,
 so signals take time to travel: a one-way trip between Earth and the Moon takes
-about 1.3 seconds, and to Mars it takes minutes. Links also break for long periods,
-as bodies move and block the line of sight. The normal internet assumes the
-opposite, short delays and a connection that stays up, so its protocols fail here:
-they expect a reply within a short time and treat a missing one as an error.
+about 1.3 seconds, and to Mars it takes minutes. Links are also interrupted for long periods, as bodies move and block the line of sight. The normal internet assumes the opposite, short delays and a connection that stays up, so its protocols may fail here: they expect a reply within a short time and treat a missing one as an error.
 
-Delay-Tolerant Networking (DTN) was designed for these conditions~\cite{rfc4838}.
+Delay-Tolerant Networking (DTN)~\cite{rfc4838} was designed for these conditions.
 Instead of a live end-to-end connection, it uses store-and-forward: each node holds
-a message until the next link is available, then passes it on. The Bundle Protocol
-carries messages as self-contained units called bundles between DTN
-nodes~\cite{rfc9171}. This tolerates long delays and broken links, which makes DTN
-the accepted basis for interplanetary networking~\cite{kaneko-ssi}, an active area
-with real implementations~\cite{ion, velazco-smallsats}.
+a message until the next link is available, then passes it on. The Bundle Protocol~\cite{rfc9171} carries messages as self-contained units called bundles between DTN nodes. This tolerates long delays and interrupted links, which makes DTN the accepted basis for interplanetary networking~\cite{kaneko-ssi}, an active area with real implementations~\cite{ion, velazco-smallsats}. Space agencies are already building detailed plans for lunar exploration on DTN and related protocols ~\cite{cosby-lunar}
 
-Email is one of the basic tools people expect, so carrying it over DTN has received
+Email is one of the basic tools people need, so carrying it over DTN has received
 attention. A gateway translates between standard mail protocols and the Bundle
 Protocol~\cite{johnson-dtn-interplanetary-smtp-01, blanchet-dtn-email-over-bp-06},
 and open tools implement this~\cite{bpmail}, so a message can move from a mail server
-on one side of a DTN link to a mail server on the other.
+on one side of a DTN link to a mail server on the other. 
 
 On any mail system, much of the incoming mail is spam, and anti-spam tools are a
 standard part of the setup. These tools do more than read the message text. They
 also test the sender and the links in the message against live network services: DNS
 blocklists of known-bad addresses, sender reputation systems, and shared databases
 of known spam. Every one of these checks sends a request to a remote server during
-the scan and waits for a fast answer before it can score that rule.
+the scan and waits for a answer before it can score that rule.
 
 \section{Motivation}
 
-Work on DTN email has gone into moving mail across the link, not into filtering it
+Work on DTN email has gone into moving mail across the link~\cite{johnson-dtn-interplanetary-smtp-01, blanchet-dtn-email-over-bp-06,bpmail}, not into filtering it
 once it arrives. Yet filtering is part of running a mail service, not an optional
-extra. Consider a crewed Moon base whose users exchange email with Earth over a DTN
-link~\cite{cosby-lunar}: spam will reach it as it reaches any mail system, and the
-tools that would catch it now depend on lookups that must cross the delayed link.
+extra. Consider a crewed Moon base whose users exchange email with Earth over DTN~\cite{cosby-lunar}: spam will reach it as it reaches any mail system, and the tools that would catch it now depend on lookups that must cross the delayed link. Filtering cannot simply be left to Earth. More than one space agency may be involved, and mail for one agency's crew can arrive through another's infrastructure, so an operator may not trust Earth-side filtering it does not control and will want to run its own anti-spam at the point of delivery, on the Moon side.
 
-Whether those tools still work is not obvious. A DTN link breaks the assumption they
-rely on: the answer is now seconds away, or the link is down when the request is
-made. A tool might slow to a crawl while it waits, lose detection when answers arrive
-too late, give up early and let spam through, retry until it loads the link, or fail
-with no sign that it failed. Each tool reaches the network in its own way, so each
-may respond differently. None of this has been measured.
-
-This dissertation measures it. The value is in understanding how the tools behave
-under delay and why, which is a starting point for anyone who later builds spam
-filtering into interplanetary email.
+Whether those tools still work is not obvious. DTN breaks an assumption they rely on: an answer is now seconds away, or the link is down when a request is made. A tool might scan far more slowly while it waits, miss spam when answers arrive too late, give up early and let spam through, retry until it overloads the link, or fail with no sign that it failed. Each tool reaches the network in its own way, so each may respond differently. To our knowledge, none of this has been measured. The value is in understanding how the tools behave under delay and why, which is a starting point for anyone who later builds spam filtering into interplanetary email.
 
 \section{Research Question and Objectives}
 
@@ -57,7 +39,7 @@ This dissertation turns that gap into a precise question.
 The primary research question is:
 
 \begin{quote}
-How do existing anti-spam tools behave when run over a delay-tolerant network link,
+How do widely-used anti-spam tools behave when run over a delay-tolerant network link,
 and what mechanisms drive that behaviour?
 \end{quote}
 
@@ -74,10 +56,9 @@ It breaks into three sub-questions:
 To answer this, the dissertation sets out to:
 
 \begin{enumerate}
-  \item Build a controlled Earth--Moon DTN email testbed using real mail and DTN
+  \item Build a controlled Earth--Moon DTN email testbed using widely-used mail and DTN
   software, with a link delay that can be set to a chosen value.
-  \item Assemble a representative email corpus and a repeatable method to scan it
-  and record per-email timing, verdicts, and network traffic.
+  \item Use a corpus of real spam messages and a repeatable method to scan it and record per-email timing, verdicts, and network traffic.
   \item Evaluate three tools, SpamAssassin, rspamd and Vipul's Razor, chosen to
   cover the main ways a filter depends on the network.
   \item For each tool, compare its behaviour under delay against a no-delay baseline
