@@ -23,6 +23,7 @@ Scan min/avg/max (s)   & 0.45/1.68/7.58 & 3.17/7.36/16.50 & 0.43/4.05/14.83 \\
 \end{table}
 
 \subsection{Detection}
+\label{sec:spamassassin_detection}
 
 With no delay, 383 messages were flagged. Applying 1.3\,s each way then broke
 detection at the resolver: DNSBL answers returned at about 2.64\,s (one RTT). But,
@@ -56,12 +57,20 @@ to Run~3.}
 \label{tab:sa-rules}
 \end{table}
 
-Second, the resolver failed around email~500. With the 1.5\,s timeout,
-the scanner drops each query, but the reply does reach \texttt{unbound} at around
-2.6\,s; thus, from \texttt{unbound}'s perspective, its upstream timed out, so it
-doubles the retransmit timeout on each event. After around 500 emails, the rto
-reached its ceiling of 120{,}000\,ms, on this build \texttt{unbound-checkconf}
-rejects \texttt{infra-cache-max-rtt}, so nothing lowers that ceiling, and it did not recover until the resolver was restarted. The hit rate collapses in the tail (Table~\ref{tab:sa-collapse}), so Run~3's aggregate mixes a live-DNS portion with a dead-DNS tail, and timeout-effect comparisons must restrict to the live portion.
+Each rule corresponds to one blocklist: RCVD\_IN\_* rules check the sending server's IP against an address-based list, and URIBL\_* rules check domains in the message body against a domain-based list. (Table~\ref{tab:sa-rules}) shows the individual DNSBL/URIBL rules; every rule falls from Run 2 to Run 3.
+
+Second, the resolver failed after approximately email~500. With
+\texttt{rbl\_timeout} and \texttt{spf\_timeout} reduced to 1.5\,s,
+SpamAssassin abandoned DNSBL lookups before the replies could return across the
+2.6\,s DTN round-trip. However, the delayed replies still reached
+\texttt{unbound}. From the resolver's perspective, the upstream DNS server had
+failed to respond before its retransmission timeout (RTO), so the query was
+treated as an upstream timeout and the RTO for that server was increased using
+exponential backoff. As this occurred repeatedly across hundreds of emails, the
+RTO eventually reached Unbound's maximum value of 120\,000\,ms, as defined by
+the default \texttt{infra-cache-max-rtt} setting~\cite{archwiki_unbound}.
+
+According to the Unbound documentation~\cite{unbound_timeout}, reaching this value places the upstream server into the \emph{blocking regime},  where Unbound considers the upstream server unresponsive and temporarily stops sending DNS queries to it and Unbound will attempt to use the server again only after the infrastructure-cache entry expires. Because the experiment used a single upstream resolver, subsequent DNSBL lookups could no longer be resolved successfully. Consequently, after approximately email~500, SpamAssassin effectively scanned messages without DNS-based checks, causing the DNSBL hit rate to collapse (Table~\ref{tab:sa-collapse}) and scan times to fall sharply. The resolver remained in this blocked state until it was restarted.
 
 \begin{table}[H]\centering
 \small
@@ -78,7 +87,7 @@ $\approx$email 500.}
 \label{tab:sa-collapse}
 \end{table}
 
-The 251 DNSBL-hit emails in Run 3, despite a 1.5 s timeout below the 2.6 s RTT, are explained by the adaptive nature of rbl\_timeout. It is not a hard per-query cutoff but the starting value of a timeout that shrinks as queries complete, with a one-second grace floor granted to each still-pending query. Messages whose lookups form a serial dependency chain — the URIBL domain→NS→IP→DNSBL wave chain, or nested SPF include: directives — launch fresh pending queries at each new wave, and the grace floor keeps extending the effective deadline past the RTT, so the delayed answers arrive in time to score. The correlation confirms this: emails that scanned longer than the RTT hit a DNSBL rule 47\% of the time, against 24\% for emails that scanned faster, and 83\% of all Run 3 hits came from the longer-scanning group. Cache reuse of shared-domain listings is a secondary contributor. The result is an irony: the same serial dependency chains that make a message slow under delay are what preserve its DNSBL detection under a reduced timeout, because the extended scan time lets answers cross the RTT boundary.
+The 251 DNSBL-hit emails in Run 3, despite a 1.5 s timeout below the 2.6 s RTT, are explained by the adaptive nature of rbl\_timeout. It is not a hard per-query cutoff but the starting value of a timeout that shrinks as queries complete, with a one-second grace floor granted to each still-pending query. Messages whose lookups form a serial dependency chain — the URIBL domain→NS→IP→DNSBL wave chain, or nested SPF include: directives — launch fresh pending queries at each new wave, and the grace floor keeps extending the effective deadline past the RTT, so the delayed answers arrive in time to score. The correlation confirms this: emails that scanned longer than the RTT hit a DNSBL rule 47\% of the time, against 24\% for emails that scanned faster, and 83\% of all Run 3 hits came from the longer-scanning group. Cache reuse of shared-domain listings is a secondary contributor. The result is that the same serial dependency chains that increase scan time under network delay also preserve DNSBL detection when the timeout is reduced, because the longer scan duration allows delayed DNS replies to arrive before scanning completes.
 
 \subsection{Scan time}
 
@@ -104,6 +113,7 @@ Run 3    & 162 & 129 & 194 & 184 & 12 \\
 The distribution changes completely with delay, since no Run~2 message scan completes in less than 3\,s, since all must now do at least one round-trip time and dependency-chain messages must do many. Run 3 splits into two groups: the shorter timeout cuts many scans short, while dependency-chain messages still run long.
 
 \subsection{Flips}
+\label{sec:sa-flips}
 
 \begin{table}[H]\centering
 \small
@@ -134,8 +144,8 @@ Component & Baseline & Run 2 & Run 3 \\
 \midrule
 DNS bytes       & 5{,}160{,}681 & 5{,}418{,}742 & 3{,}413{,}349 \\
 DNS packets     & 37{,}789 & 39{,}875 & 25{,}783 \\
-Bundle bytes    & 572{,}625 & 538{,}529 & 547{,}709 \\
-Bundle packets  & 1{,}447 & 1{,}369 & 1{,}389 \\
+Email Bundle bytes    & 572{,}625 & 538{,}529 & 547{,}709 \\
+Email Bundle packets  & 1{,}447 & 1{,}369 & 1{,}389 \\
 DNS \% of bytes & 90.0\% & 91.0\% & 86.2\% \\
 \bottomrule
 \end{tabular}
@@ -143,7 +153,13 @@ DNS \% of bytes & 90.0\% & 91.0\% & 86.2\% \\
 \label{tab:sa-bw}
 \end{table}
 
-Traffic in DNS is nine or ten times as much as the bundle bytes in the baseline and Run~2, while the number of bundle bytes is essentially the same between runs. The number of bytes for DNS traffic in Run~3 is lower since there is no longer any tail that sends out queries upstream; the bandwidth decrease is due to the collapse of the resolver tail.
+Traffic in DNS is nine to ten times greater than the DTN bundle traffic carrying
+the email messages in the baseline and Run~2, while the amount of
+email bundle traffic stays almost the same across all runs. In Run~3, the lower
+DNS traffic indicates a resolver failure rather than a bandwidth saving. After
+about email~500, the resolver stopped sending DNS queries upstream, so fewer
+DNS packets were generated and SpamAssassin could no longer perform DNSBL
+lookups.
 
 \section{rspamd}
 
@@ -372,12 +388,7 @@ DNS queries / responses      & 36 / 42  & 650 / 810 & 777 / 971 \\
 DNS traffic is less than 1\% of volume in all runs: Razor's per-check DNS traffic is
 small, and its delay sensitivity is in TCP, not DNS. That is the opposite of rspamd, where DNS traffic dominated the delayed run.
 
-Connections per message increase from 1.01\,$\to$\,1.30\,$\to$\,8.02. Baseline uses
-about one server per message; with delay, some scans use additional servers due to
-failure; with the timeout, every handshake fails, so nextserver walks through every server in the catalogue and nomination lists until they are exhausted, and all of them are tried on each message. Therefore, the volume of Run~3 (57{,}937 frames,
-40.2\,MB) is the largest despite the shortest wall-time: every handshake failure
-has a kernel-level SYN retransmission, which accounts for roughly two SYNs
-per attempt across four servers in 681 messages.
+Connections per message increase from 1.01\,$\to$\,1.30\,$\to$\,8.02. In the baseline, each message establishes, on average, one TCP connection to a Razor server, indicating that the first selected server usually responds successfully. With delay, some scans use additional servers due to failure; with the timeout, every handshake fails, so nextserver walks through every server in the catalogue and nomination lists until they are exhausted, and all of them are tried on each message. Therefore, the volume of Run~3 (57{,}937 frames, 40.2\,MB) is the largest despite the shortest wall-time: every handshake failure has a kernel-level SYN retransmission, which accounts for roughly two SYNs per attempt across four servers in 681 messages.
 
 
 \section{Summary}
@@ -428,7 +439,10 @@ Network rules issue many lookups per message; the mail payload is small by compa
 \end{table}
 
 
-% preamble needs: \usepackage{booktabs} \usepackage{array} \usepackage{float}
+
+
+
+
 \begin{table}[H]\centering
 \footnotesize
 \renewcommand{\arraystretch}{1.4}
@@ -438,44 +452,95 @@ Network rules issue many lookups per message; the mail payload is small by compa
 \midrule
 
 SpamAssassin &
-\texttt{rbl\_timeout} --- 1.5\,s \newline (default 15\,s) &
-Below the 2.6\,s RTT, so DNSBL lookups are abandoned before their answers return and per-message detection falls \\
+\makecell[l]{\texttt{rbl\_timeout}\\
+\hspace{1em}Default: 15\,s\\
+\hspace{1em}Run~3: 1.5\,s} &
+Below the 2.6\,s RTT, so DNSBL lookups are abandoned before their answers return and per-message detection falls. \\
 \cmidrule(l){2-3}
-& \texttt{spf\_timeout} --- 1.5\,s \newline (default 5\,s) &
-Below the RTT, so SPF lookups do not resolve within the scan \\
+
+&
+\makecell[l]{\texttt{spf\_timeout}\\
+\hspace{1em}Default: 5\,s\\
+\hspace{1em}Run~3: 1.5\,s} &
+Below the RTT, so SPF lookups do not resolve within the scan. \\
 \midrule
 
 rspamd &
-\texttt{dns.timeout} --- 1\,s \newline (default 1\,s) &
-Sets the per-attempt DNS wait; the effective wait is \texttt{timeout}$\times$\texttt{retransmits} \\
+\makecell[l]{\texttt{dns.timeout}\\
+\hspace{1em}Default: 1\,s\\
+\hspace{1em}Tested: 1\,s} &
+Sets the per-attempt DNS wait; the effective wait is
+\texttt{timeout}$\times$\texttt{retransmits}. \\
 \cmidrule(l){2-3}
-& \texttt{dns.retransmits} --- 1 \newline (default 5) &
-Cutting the effective DNS wait below the RTT does not drop detection: a late answer arriving while the task still runs is still used \\
+
+&
+\makecell[l]{\texttt{dns.retransmits}\\
+\hspace{1em}Default: 5\\
+\hspace{1em}Tested: 1} &
+Reducing the effective DNS wait below the RTT does not drop detection: a late answer arriving while the task still runs is still used. \\
 \cmidrule(l){2-3}
-& \texttt{task\_timeout} --- 1.5\,s \newline (default 8\,s) &
-The whole-message ceiling, below the RTT, aborts the scan before answers return; blocklist hits become \texttt{\_FAIL} timeouts and DNS volume falls \\
+
+&
+\makecell[l]{\texttt{task\_timeout}\\
+\hspace{1em}Default: 8\,s\\
+\hspace{1em}Run~3: 1.5\,s} &
+The whole-message ceiling, below the RTT, aborts the scan before answers return; blocklist hits become \texttt{\_FAIL} timeouts and DNS volume falls. \\
 \midrule
 
 Razor &
-Connect \texttt{Timeout} --- 2\,s \newline (default 20\,s; hardcoded in \texttt{Core.pm}) &
-Below the RTT, so every catalogue-server handshake aborts before its SYN-ACK returns; detection collapses to 100\% network error \\
+\makecell[l]{Connect \texttt{Timeout}\\
+\hspace{1em}Default: 20\,s\\
+\hspace{1em}Run~3: 2\,s} &
+Below the RTT, so every catalogue-server handshake aborts before its SYN-ACK returns; detection collapses to 100\% network error. \\
 \cmidrule(l){2-3}
-& \texttt{can\_read} --- 15\,s \newline (unchanged; hardcoded via \texttt{IO::Select}) &
-Governs the wait for a server's reply; a server that accepts but is slow to respond stalls the scan up to 15\,s, producing Run 2's long scan-time tail \\
+
+&
+\makecell[l]{\texttt{can\_read}\\
+\hspace{1em}Default: 15\,s\\
+\hspace{1em}Unchanged} &
+Governs the wait for a server's reply; a server that accepts but is slow to respond stalls the scan up to 15\,s, producing Run~2's long scan-time tail. \\
 \midrule
 
 unbound \newline (resolver) &
-\texttt{discard-timeout} --- 9000\,ms (default 1900\,ms) &
-Must exceed the RTT, otherwise delayed DNSBL answers are dropped as too old and detection fails silently \\
+\makecell[l]{\texttt{discard-timeout}\\
+\hspace{1em}Default: 1900\,ms\\
+\hspace{1em}Configured: 9000\,ms} &
+Must exceed the RTT, otherwise delayed DNSBL answers are dropped as too old and detection fails silently. \\
 \cmidrule(l){2-3}
-& \texttt{infra-cache-min-rtt} --- 4000\,ms (default 50\,ms) &
-Must exceed the RTT, otherwise the resolver treats a delayed answer as a lost packet on first contact \\
+
+&
+\makecell[l]{\texttt{infra-cache-min-rtt}\\
+\hspace{1em}Default: 50\,ms\\
+\hspace{1em}Configured: 4000\,ms} &
+Must exceed the RTT, otherwise the resolver treats a delayed answer as a lost packet on first contact. \\
 
 \bottomrule
 \end{tabular}
 \caption{Timeout settings that govern behaviour under delay, and the effect of setting them relative to the round-trip time (RTT $\approx$ 2.6\,s).}
 \label{tab:config-impact}
 \end{table}
+
+
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Tool & Baseline & Run 2 & Run 3 \\
+\midrule
+SpamAssassin & 5.16 MB DNS & 5.42 MB DNS & 3.41 MB DNS \\
+rspamd       & 18 MB total & 32 MB total & 14 MB total \\
+Razor        & 3.4 MB total & 5.1 MB total & 40.2 MB total \\
+\bottomrule
+\end{tabular}
+\caption{Summary of network traffic volume across all tools. SpamAssassin reports DNS traffic only, rspamd reports total captured traffic, and Razor reports total captured traffic at the receiver.}
+\label{tab:summary-network}
+\end{table}
+
+SpamAssassin generated approximately 5 MB of DNS traffic in the baseline and Run 2, with traffic falling in Run 3 because the resolver failed after approximately 500 messages. rspamd produced the highest traffic in Run 2 (32 MB) because delayed DNS replies triggered repeated retransmissions. Razor's network volume peaks in Run~3 (40.2,MB) because repeated TCP connection failures cause \texttt{nextserver} to contact every available server, generating many SYN retransmissions.
+
+
 
 \begin{table}[H]\centering
 \footnotesize

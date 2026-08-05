@@ -6,7 +6,7 @@ This chapter describes the testbed used to evaluate anti-spam tools under one-wa
 \section{System Architecture}
 \label{sec:arch}
 
-The testbed has two networks joined by a relay. Each node is a separate virtual machine running Ubuntu 22.04 LTS. Earth uses 192.168.100.0/24 and Moon uses 192.168.200.0/24. The nodes are:
+The testbed has two networks joined by a relay. Each node runs an ION instance (Section~\ref{sec:background-ion}) and is a separate virtual machine running Ubuntu 22.04 LTS. Earth uses 192.168.100.0/24 and Moon uses 192.168.200.0/24. The nodes are:
 
 \begin{itemize}
   \item \textbf{Mail1 (Earth).} The Earth mail server. Runs Postfix and Dovecot. Address 192.168.100.10.
@@ -16,9 +16,7 @@ The testbed has two networks joined by a relay. Each node is a separate virtual 
   interface 192.168.100.1, Moon-side interface 192.168.200.1. ION node 2.
   \item \textbf{Mail2 (Moon).} The Moon mail server. Runs Postfix, Dovecot, and
   the three anti-spam tools. Address 192.168.200.11. ION node 3.
-  \item \textbf{Client1 (Earth).} User terminal on the Earth network. Runs
-  Thunderbird and connects to Mail1 over IMAP (port 143) and SMTP submission
-  (port 587, STARTTLS).
+  \item \textbf{Client1 (Earth).} User terminal on the Earth network. Runs Thunderbird and a script (the test harness)(Section~\ref{sec:harness}) that injects the spam messages. Connects to Mail1 over IMAP (port 143) and SMTP submission (port 587, STARTTLS).
   \item \textbf{Client2 (Moon).} User terminal on the Moon network. Runs
   Thunderbird and connects to Mail2 the same way.
 \end{itemize}
@@ -81,11 +79,11 @@ The path of a message is shown in Figure~\ref{fig:dataflow}.
 \label{sec:env}
 
 \subsection{Virtual machines over containers}
-The testbed runs on full virtual machines (Ubuntu 22.04 LTS, ARM64, under UTM on macOS). Containers were considered but not used. The anti-spam experiment has three needs that settle this:
+The testbed runs on full virtual machines (Ubuntu 22.04 LTS, ARM64, under UTM on macOS). Containers were considered but not used. They were not used for three reasons:
 
 \begin{itemize}
    \item \textbf{VMs match the topology.} The testbed mimics three separate machines — Earth, Space, Moon — connected by a long-delay link, and full VMs naturally model this, whereas containers share one kernel on one host.
-  \item \textbf{Simpler delay setup.} Setting up ifb to delay incoming traffic is fiddly and error-prone inside containers, but it is straightforward on a VM where each node has its own kernel and network stack.
+  \item \textbf{Simpler delay setup.} Setting up an intermediate functional block (ifb), the virtual device used to apply delay to incoming traffic (Section~\ref{sec:delay}), is fiddly and error-prone inside containers, but it is straightforward on a VM where each node has its own kernel and network stack.
   \item \textbf{DTN state stays isolated per node.} Each ION node keeps its own bundle store and contact schedule, and a full VM ensures the link delay sits on the path itself rather than leaking into a node's own processing.
 \end{itemize}
 
@@ -111,8 +109,7 @@ Three tools were selected, each with a different external dependency:
   blocklist lookups.
   \item \textbf{rspamd 2.7} --- content scoring with a large number of
   asynchronous DNS lookups.
-  \item \textbf{Vipul's Razor 2.84} --- collaborative filtering through a central
-  nonce server, reached over TCP on port 2703.
+  \item \textbf{Vipul's Razor 2.84} --- collaborative filtering that checks each message against a central catalogue server, which holds signatures of known spam reported by other users.
 \end{itemize}
 
 The three cover the main ways a filter reaches the network: blocklist DNS (SpamAssassin, rspamd) and a TCP request to a central reputation server (Razor). Testing one tool would show only one failure path.
@@ -120,17 +117,7 @@ The three cover the main ways a filter reaches the network: blocklist DNS (SpamA
 
 \section{DTN Design}
 \label{sec:dtn}
-The DTN layer uses ION-DTN 4.1.4 and BPMail. The three
-servers run ION as nodes on a single \texttt{ipn} scheme: Mail1 (Earth) is node 1,
-Space (relay) is node 2, and Mail2 (Moon) is node 3. Bundles are carried over a UDP
-convergence layer, with each node listening on its own port: 1113 on Mail1, 2113
-on Space, and 3113 on Mail2, and the relay forwards them between the two mail
-nodes, so the path from Earth to Moon is node 1 to node 2 to node 3. The contact
-plan sets the windows during which the nodes can exchange bundles. BPMail sits above
-ION on each mail server: it takes a message from Postfix, encapsulates it into a
-bundle for the destination node, and rebuilds it on arrival. The full configuration,
-including the SDR settings, the contact plan, and the startup order, is given in the
-implementation chapter.
+The DTN layer uses ION-DTN 4.1.4~\cite{ionsoftware} and BPMail. The three servers run ION as nodes on a single ipn scheme (Section~\ref{sec:background-dtn}): Mail1 (Earth) is node 1, Space (relay) is node 2, and Mail2 (Moon) is node 3. Bundles are carried over a UDP convergence layer (Section~\ref{sec:background-dtn}), with each node listening on its own port: 1113 on Mail1, 2113 on Space, and 3113 on Mail2. The relay forwards bundles between the two mail nodes, so the path from Earth to Moon is node 1 to node 2 to node 3. The contact plan (Section~\ref{sec:background-ion}) sets the windows during which the nodes can exchange bundles. BPMail sits above ION on each mail server: it takes a message from Postfix, encapsulates it into a bundle for the destination node, and rebuilds it on arrival. The full configuration, including the SDR settings (Section~\ref{sec:background-ion}), the contact plan, and the startup order, is given in the implementation chapter.
 
 \section{Delay Simulation Design}
 \label{sec:delay}
@@ -180,8 +167,7 @@ returning an error or an empty answer rather than a listing~\cite{spamhaus}.
 Scanning through one would report no spam for reasons unrelated to delay and make
 the results meaningless.
 
-The testbed therefore uses a local resolver, running on an off-testbed virtual machine with ordinary internet access to the live blocklist zones. The Moon node runs a local \texttt{unbound} instance that forwards to it.
-Three properties make this the right choice:
+The testbed therefore uses a local resolver, running on an off-testbed virtual machine with ordinary internet access to the live blocklist zones. The Moon node runs a local unbound instance that forwards to it, for the following reasons:
 
 \begin{itemize}
   \item \textbf{Valid blocklist answers.} A dedicated resolver querying the blocklist zones is what those operators expect, so listings are returned normally and all that is added to a lookup is the injected link delay.
@@ -194,10 +180,7 @@ Three properties make this the right choice:
   state is on record.
 \end{itemize}
 
-The recursive resolver sits off the Moon network, so every query the scanner
-makes crosses the relay and pays the same delay as the mail. This is deliberate:
-the lookups a filter depends on are exactly what the experiment measures under
-delay.
+The recursive resolver sits off the Moon network, so every query the scanner makes crosses the relay and is delayed like the mail.
 
 
 \section{Summary}

@@ -49,6 +49,7 @@
 \usepackage{ragged2e} %allows for text alignment preferences
 \usepackage{float}
 \usepackage{booktabs}
+\usepackage{makecell}
 
 %% Bibliographical stuff
 \usepackage[round,sort,comma,numbers]{natbib}
@@ -173,7 +174,7 @@
 % evaluation
 % conclusion
 
-Communications links in deep space suffer from high delays and disruptions that make protocols designed for a low-latency, always-available network unsuitable for use over them. Delay-Tolerant Networking (DTN) allows e-mail to be delivered over such links, but the problem of filtering spam in that environment has been little studied. This matters because many widely-used spam filters depend on live lookups to remote servers, which must now be reached over the delayed link. This research measures the performance of three commonly used filters: Spam-Assassin, rspamd, and Vipul’s Razor, in the scenario of accessing them through DTN link and draws conclusions and recommendations from the results obtained.
+Communications links in deep space suffer from high delays and disruptions that make protocols designed for a low-latency, always-available network unsuitable for use over them. Delay-Tolerant Networking (DTN) allows e-mail to be delivered over such links, but the problem of filtering spam in that environment has been little studied. This matters because many widely-used spam filters depend on live lookups to remote servers, which must now be reached over the delayed link. This research measures the performance of three widely-used filters, SpamAssassin, rspamd, and Vipul's Razor, when they are accessed under high delay, and draws conclusions and recommendations from the results.
 
 A testbed with five nodes was created to test an emulated Earth–Moon link, consisting of real applications: Postfix and Dovecot for message delivery, ION-DTN and BPMail gateway for message transmission, and a locally installed DNS resolver for blocklist lookups. A delay equal to 1.3 seconds was imposed on the relay node and each filter was tested using 681 known-spam messages under three scenarios, a no-delay baseline, the delay applied with the tool's default timeouts, and the delay with the tool's own timeout reduced below the round-trip, while recording per-message verdicts, scan times, and packet captures.
 
@@ -184,8 +185,10 @@ A testbed with five nodes was created to test an emulated Earth–Moon link, con
 
 \section*{\Huge{Acknowledgements}}
 I would like to thank my supervisor, Professor Stephen Farrell. Under his supervision, I was able to successfully complete this dissertation. His inspiration and suggestions regarding the project's direction were essential for the progress of this research.
+I am also grateful to Richard Clayton for providing the spam message corpus used in this evaluation.
 
-I am also grateful to my family and friends for their support and encouragement throughout this process.
+Finally, I would like to thank my family and friends for their support and encouragement throughout this process.
+\tableofcontents
 \newpage \listoffigures
 \newpage \listoftables
 \newpage

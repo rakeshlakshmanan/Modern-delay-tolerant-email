@@ -2,14 +2,37 @@
 
 This chapter reviews the work that surrounds spam filtering over DTN. It covers three fields that touch the subject, a set of problems elsewhere that have the same shape, and the methods those fields use to evaluate their systems. It ends by identifying the gap this dissertation addresses: the behaviour of anti-spam filtering under delay.
 
+\section{Background}
+\label{sec:background}
+
+This section introduces the parts of delay-tolerant networking that the later chapters rely on: the Bundle Protocol and its terms, and ION, the implementation used to build the testbed.
+
+\subsection{Delay-Tolerant Networking and the Bundle Protocol}
+\label{sec:background-dtn}
+
+A node is a single participant in a delay-tolerant network. A bundle is the self-contained unit the Bundle Protocol carries between nodes~\cite{rfc9171}, holding the message together with the information needed to forward it. Under the ipn naming scheme, each node has a number, and an endpoint on that node is written ipn:node.service, where the service number identifies the application that receives the bundle.
+
+The Bundle Protocol does not itself move bundles between neighbouring nodes. That is left to a convergence layer, an adapter that carries bundles over an underlying transport such as UDP or TCP. The testbed uses the UDP convergence layer, so each bundle travels between nodes inside a UDP datagram.
+
+\subsection{ION}
+\label{sec:background-ion}
+
+ION, the Interplanetary Overlay Network, is one implementation of the Bundle Protocol, developed at NASA's Jet Propulsion Laboratory~\cite{ion}. It was chosen for its use in deep-space missions and for the mail tools built on it. The paragraphs below cover the parts of ION the later chapters depend on: how it stores bundles, how it routes them, and the delivery service the mail gateway uses.
+
+Because a delay-tolerant network holds a message until the next link is available, each node needs somewhere to keep it in the meantime. In ION this is the SDR, a persistent store where bundles and protocol state are held so they survive a break in the link or a restart of the node.
+
+A deep-space link is also not always available, so ION does not discover routes on demand. It computes them from a contact plan, a schedule that declares when the link between two nodes is up and at what data rate, together with the propagation delay between them. From this plan, ION's Contact Graph Routing works out how a bundle should reach its destination.
+
+Above the Bundle Protocol, ION offers Delay-Tolerant Payload Conditioning (DTPC), a service that provides reliable, in-order delivery and can gather several application messages into one bundle. The mail gateway sends over DTPC rather than over raw bundles.
+
 \section{Email over DTN}
 
 Transporting email over a delayed or intermittent network connection is not novel. Previous studies are terrestrial and were developed for rural regions with no continuous connection. DakNet~\cite{daknet} used automobiles to transport email from village to village, and to the internet gateway, offering an inexpensive alternative to a wired connection. KioskNet~\cite{kiosknet} improved on this with a whole system including kiosk controllers, naming, routing and a security framework, reporting a pilot installation. MotoPost~\cite{motopost} used dual-mode mobile phones as data mules, with SMTP as the base application protocol for message transfer.
 
-Security is addressed as identity and confidentiality for all three. KioskNet~\cite{kiosknet} uses a public-key-infrastructure framework to provide privacy, confidentiality and integrity, and handles user management and logging. None of the three has filters to remove junk mail, and none reports how much was received during their deployments.
+In all three systems, security means authenticating users and keeping message contents confidential, rather than filtering the mail itself. KioskNet~\cite{kiosknet} uses a public-key-infrastructure framework to provide privacy, confidentiality and integrity, and handles user management and logging. None of the three has filters to remove junk mail, and none reports how much was received during their deployments.
 
 
-The latest set of draft standards addresses space. One concerns a gateway that terminates the SMTP session locally and passes the message to the Bundle Protocol~\cite{johnson-dtn-interplanetary-smtp-01}. Another describes how to encapsulate the message into a bundle~\cite{blanchet-dtn-email-over-bp-06}.A third concerns a naming model for off-Earth domains and the need to structure message-authentication components, including DMARC, so that only resources local to the network are needed to handle the request~\cite{johnson-dtn-interplanetary-dns-04}. BPMail is an open implementation of the gateway approach~\cite{bpmail}.
+A more recent set of IETF drafts addresses email over DTN in the space setting. One concerns a gateway that terminates the SMTP session locally and passes the message to the Bundle Protocol~\cite{johnson-dtn-interplanetary-smtp-01}. Another describes how to encapsulate the message into a bundle~\cite{blanchet-dtn-email-over-bp-06}.A third concerns a naming model for off-Earth domains and the need to structure message-authentication components, including DMARC~\cite{rfc7489}, so that only resources local to the network are needed to handle the request~\cite{johnson-dtn-interplanetary-dns-04}. BPMail is an open implementation of the gateway approach~\cite{bpmail}.
 
 Spam is mentioned in just one of those drafts, which states that spam can cause denial-of-service problems for a store-and-forward network and recommends two solutions: checking integrity and authenticity of the sending network, as with DMARC, and whitelisting sending networks~\cite{johnson-dtn-interplanetary-smtp-01}. These are preventive measures addressing who is allowed to send messages. Neither draft mentions any tool that could examine messages as they arrive. The security section of the encapsulation draft merely notes that a payload carrying bad data is itself a denial of service~\cite{blanchet-dtn-email-over-bp-06}.
 
@@ -44,22 +67,21 @@ The fourth one is where the filtering process occurs. One paper relocates the fi
 
 \section{Methods and their limits}
 
-Each of these fields evaluates in a way that could not produce the result this
-dissertation needs.
+Each of these fields evaluates its systems in a way that cannot measure behaviour under delay.
 
-The DTN application evaluation reasons from the specification. The HTTP encapsulation draft~\cite{blanchet-dtn-http-over-bp-04} identified the round-trip problem through protocol analysis and designed around it. This works when the round-trips can be seen in the protocol. The network checks a filter makes are not: they happen in the scanner process, driven by plugin behaviour, timeouts, and chains of lookup dependencies that do not appear in any protocol document. The chain of URI blocklist lookups, for example, is specified only in the plugin documentation~\cite{sauridnsbl}. Protocol analysis cannot find them.
+Work on DTN applications is evaluated by analysing the protocol specification rather than by running the system. The HTTP encapsulation draft~\cite{blanchet-dtn-http-over-bp-04} identified the round-trip problem through protocol analysis and designed around it. This works when the round-trips can be seen in the protocol. The network checks a filter makes are not: they happen in the scanner process, driven by plugin behaviour, timeouts, and chains of lookup dependencies that do not appear in any protocol document. The chain of URI blocklist lookups, for example, is specified only in the plugin documentation~\cite{sauridnsbl}. Protocol analysis cannot find them.
 
 The anti-spam evaluation measures a filter's performance on a corpus over a low-latency network, reporting accuracy~\cite{dada-mlspam,damiani-digest}. Done this way, it produces no timing information, and cannot, because the latency it would measure is not present.
 
 The DTN evaluation uses simulation and emulation, measuring delivery ratio, routing behaviour, and buffer occupancy~\cite{jain-dtn-routing}.
 
-This dissertation therefore runs the tools themselves over a working DTN stack under controlled delay, and records per-message timing, verdicts, and packet captures. Behaviour that is neither written in a specification nor visible in a terrestrial accuracy benchmark can only be found by running the software and observing the network.
+This dissertation therefore carries mail over a working DTN stack and runs the tools against it under controlled delay, recording per-message timing, verdicts, and packet captures.Behaviour that is neither written in a specification nor visible in a terrestrial accuracy benchmark can only be found by running the software and observing the network.
 
 \section{The gap}
 
-Four bodies of literature fall short of the research question. Deployments and drafts for DTN email transfer send mail through a delayed channel but do not filter it. The anti-spam literature measures the accuracy of classification filters but does not measure filter behaviour under delay. The DTN security literature considers the cost of undesirable traffic but addresses it through authentication rather than classification. The adjacent application literature identifies the round-trip problem but solves it proactively, without measurement.
+Email over DTN has been deployed and drafted for, but that work moves mail across a delayed channel without filtering it. The anti-spam literature is concerned with accuracy, meaning how well a classifier separates spam from good mail, and measures it on low-latency networks, so delay never enters the picture. Work on DTN security does treat unwanted traffic as a problem, but its answer is to authenticate senders, not to inspect messages. And the round-trip cost that filtering runs into has been noticed before, in adjacent applications, but it was designed around rather than measured.
 
-The gateway draft~\cite{johnson-dtn-interplanetary-smtp-01} identifies spam as a threat to a store-and-forward network but stops at policy. None of these studies measures how the tools behave when delay is added to their lookups. That behaviour is the research question this dissertation answers.
+The SMTP gateway draft~\cite{johnson-dtn-interplanetary-smtp-01} does name spam as a threat to a store-and-forward network, but goes no further than recommending policy. So how the tools actually behave once delay is added to their lookups has not been measured, and that is the question this dissertation sets out to answer.
 
 \section{Summary}
 

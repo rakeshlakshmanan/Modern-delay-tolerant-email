@@ -6,10 +6,7 @@
 
 \chapter{Implementation}
 
-This chapter describes how the testbed was built and how the experiments are run on
-it. It covers the DTN and mail layers, the delay mechanism, the resolver, the setup
-of each anti-spam tool, and the harness that executes a full set of runs without
-supervision.
+This chapter describes how the testbed was built and how the experiments are run on it. It covers the DTN and mail layers, the delay mechanism, the resolver, the setup of each anti-spam tool, and the harness that executes a full set of runs without supervision. This chapter is written in enough detail to help future work that builds on this setup.
 
 \section{Basis and Scope of This Work}
 
@@ -74,16 +71,12 @@ a contact +0 +86400  2 3  100000000
 a contact +0 +86400  3 2  100000000
 \end{lstlisting}
 
-The contact windows are set to 24 hours. Shorter windows expire during a run and
-bundles stop being forwarded, so the window has to cover a full pass of three runs
-with margin. Each node is started with an \texttt{ionstart} script that loads the
-node configuration, the contact plan, the security database and the bundle protocol
-configuration in that order, with short pauses between them.
+This contact plan is simple and more-or-less always on: the contact windows are set to 24 hours, since shorter windows expire during a run and bundles stop being forwarded, so the window has to cover a full pass of three runs with margin. A more complex scenario, such as one including an orbiter whose visibility to a ground station comes and goes, would need a contact plan with scheduled outages instead, but that is not needed to study the effect of delay alone.
 
 \section{Mail Layer}
 
-BPMail 0.1.0 provides the gateway between the mail system and ION. It is installed
-on mail1 and mail2 only; space forwards bundles and does not handle mail.
+BPMail 0.1.0 provides the gateway between the mail system and ION. It is installed on mail1 and mail2 only; space forwards the bundles between them without running BPMail or speaking any mail protocol, even though those bundles carry mail as their content.
+
 
 \subsection{Build}
 
@@ -112,10 +105,7 @@ sudo ninja -C build install
 
 \subsection{DTPC configuration}
 
-BPMail transfers mail over DTPC rather than raw bundles, so the two mail nodes need
-DTPC endpoints and a profile. Service 128 is used for sending and 129 for receiving,
-and the endpoints are added to each node's bundle protocol configuration as shown
-above. The DTPC profile is the same on both nodes:
+BPMail transfers mail over DTPC (Section~\ref{sec:background-ion}) rather than raw bundles, so the two mail nodes need DTPC endpoints and a profile. Service 128 is used for sending and 129 for receiving, and the endpoints are added to each node's bundle protocol configuration as shown above. The DTPC profile is the same on both nodes:
 
 \begin{lstlisting}
 1
@@ -194,16 +184,13 @@ module can be removed on mail2, leaving only the iterator:
 module-config: "iterator"
 \end{lstlisting}
 
-The second concerns two timers that interact with the link delay:
+
+The second concerns two timers that interact with the link delay, both given in milliseconds. For the delayed runs both were increased above unbound's defaults, so that they exceed the round-trip time of the delayed link; the reason these values matter, and what happens with the defaults in place, is a result of the experiments and is presented in Chapter~\ref{sec:spamassassin_detection}.
 
 \begin{lstlisting}
-discard-timeout: 9000
-infra-cache-min-rtt: 4000
+discard-timeout: 9000        //default: 1900
+infra-cache-min-rtt: 4000    //default: 50
 \end{lstlisting}
-
-Both defaults are shorter than the round-trip time of the delayed link. The reason
-these values are needed, and what happens with the defaults in place, is a result of
-the experiments and is presented in Chapter~5.
 
 \section{Anti-Spam Tools}
 
@@ -288,7 +275,7 @@ That a source patch is the only way to change this value is itself a finding abo
 the tool, and is returned to in Chapter~5.
 
 \section{Email Corpus}
-The corpus is drawn from Richard Clayton's public spam archive, a collection of spam messages captured from live mail traffic. 681 of these were used in every run. The same 681 messages, in the same sorted order, were scanned in all three runs of every tool, so per-message comparisons across runs refer to identical inputs. The corpus is used to characterise tool behaviour under delay rather than to measure absolute detection accuracy, so what matters is that the message set is fixed and realistic, not that it is balanced between spam and legitimate mail.
+The corpus is drawn from a set of spam messages provided by Richard Clayton, captured from live mail traffic in June 2026. 681 of these were used in every run. Because spam content and the blocklists used to catch it both change over time, this corpus reflects spam as it appeared at that point and is not expected to remain representative, so it is unlikely to be reusable for a repeat of this experiment in future without being refreshed; blocklist listings alone were observed to drift measurably over a two-day gap between runs in this study (Section~\ref{sec:sa-flips}).
 
 \section{Run Harness}
 \label{sec:harness}
@@ -305,9 +292,7 @@ Every parameter it uses is held in one configuration file, so the procedure is i
 
 \subsection{Structure}
 
-The harness connects to the three servers with Paramiko. Mail1 and mail2 are not
-reachable directly from the Mac, so their connections are tunnelled through space,
-which is opened first.
+The harness connects to the three servers with Paramiko, a Python library for scripting SSH sessions. Mail1 and mail2 are not reachable directly from the Mac, so their connections are tunnelled through space, which is opened first.
 
 Work on the servers is done by two shell agents, one on mail1 that sends and one on
 mail2 that receives and scans. They are written out to each node at the start of a
@@ -321,26 +306,19 @@ run, is fragile over hours; sentinel files survive a dropped connection.
 
 \subsection{Preflight and boot}
 
-Before anything starts, the harness checks that \texttt{utmctl} is usable, that the
-named virtual machines exist, and that the results directory has at least 20\,GB
-free. It then starts the machines in order and waits for each to accept SSH, up to
-five minutes. It also holds \texttt{caffeinate} open for the session so the Mac does
-not sleep partway through a run.
+The harness controls the virtual machines through utmctl, UTM's command-line tool. Before anything starts, it checks that utmctl is usable, that the named virtual machines exist, and that the results directory has at least 20 GB free. It then starts the machines in order and waits for each to accept SSH, up to
+five minutes. The harness also runs caffeinate, a macOS utility that prevents the machine from sleeping, for the length of the session so the Mac does not go to sleep partway through a run.
 
-\subsection{Verification gates}
+\subsection{Checks before a run}
+\label{sec:test_harness_verification}
 
-A run only starts if the testbed is in a known state. Four checks are made, and any
-of them can abort the pass:
+Before a run starts, the harness checks that the testbed is actually in a state where the results will mean something. Any of the checks below, called gates, can stop the run before it begins.
 
 \begin{itemize}
-  \item \textbf{Clocks.} Timing is compared between the sender on mail1 and the
-  receiver on mail2, so their clocks must agree. The offset from the host is measured
-  on each node; anything above one second aborts.
-  \item \textbf{Resolver.} \texttt{unbound} must be active on mail2 and must answer a
-  test query.
-  \item \textbf{ION.} ION is restarted across all three nodes, which resets the
-  contact window so that it covers the whole pass.
-  \item \textbf{Tool.} The tool's version command must return output, confirming it is installed; the version string is recorded with the results.
+    \item \textbf{Clocks.} The sender on mail1 and the receiver on mail2 need to agree on the time, since their timestamps are compared to measure delay. The harness checks each node's clock against the host and stops the run if either is off by more than a second.
+    \item \textbf{Resolver.} unbound has to be running on mail2 and able to answer a test query, or none of the DNS-dependent tools would work.
+    \item \textbf{ION.} ION is restarted on all three nodes. This also resets the contact window so it covers the whole run.
+    \item \textbf{Tool.} The harness asks the tool for its version, and a response confirms it is installed. That version string is saved alongside the results.
 \end{itemize}
 
 \subsection{Sequence of a run}
@@ -366,8 +344,7 @@ sudo tcpdump -i any -s 0 -w {out} -C 100 -W 30 'not tcp port 22'
 The receiver is launched first and the sender three seconds later, so that no message
 can arrive before the receiver is listening.
 
-The sender walks the corpus in sorted order. For each message it records the
-Message-ID and a timestamp, sends it, and records the exit code:
+The sender goes through the corpus in sorted order. For each message it records the Message-ID and a timestamp, sends it, and records the exit code:
 
 \begin{lstlisting}
 mid=$(grep -i -m1 '^Message-ID:' "$f" | tr -d '\r\n' | cut -d' ' -f2-)
